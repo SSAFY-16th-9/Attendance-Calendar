@@ -6,14 +6,14 @@ import { useAuth } from "./auth-provider";
 import InlineFineAction from "./inline-fine-action";
 const typeClass = (type: string) => `type-${TYPES.indexOf(type as AttendanceType)}`;
 const formatDate = (date: string) => new Date(`${date}T12:00:00+09:00`).toLocaleDateString("ko-KR", { month: "long", day: "numeric", weekday: "short", timeZone: "Asia/Seoul" });
-// Permissions mirror the server: members edit their own non-admin records, only admins delete.
+// Permissions mirror the server: members edit their own records (무단 ones keep their date), only admins delete.
 export default function EntryDetailDialog({ name, entries, onClose, onEdit, onChanged }: { name: string | null; entries: AttendanceEntry[]; onClose: () => void; onEdit: (entry: AttendanceEntry) => void; onChanged: (message?: string) => void }) {
   const { user } = useAuth(); const dialog = useRef<HTMLDialogElement>(null);
   const [confirming, setConfirming] = useState<string | null>(null); const [busy, setBusy] = useState(false); const [error, setError] = useState("");
   const open = !!name && entries.length > 0;
   useEffect(() => { if (open) { if (!dialog.current?.open) { setConfirming(null); setError(""); dialog.current?.showModal(); } } else dialog.current?.close(); }, [open]);
   useEffect(() => { if (name && !entries.length) onClose(); }, [name, entries.length, onClose]);
-  const canEdit = (entry: AttendanceEntry) => user?.role === "admin" || (user?.role === "member" && user.name === entry.name && !entry.adminRecord);
+  const canEdit = (entry: AttendanceEntry) => user?.role === "admin" || (user?.role === "member" && user.name === entry.name);
   const canDelete = user?.role === "admin";
   async function remove(entry: AttendanceEntry) {
     if (busy) return; setBusy(true); setError("");

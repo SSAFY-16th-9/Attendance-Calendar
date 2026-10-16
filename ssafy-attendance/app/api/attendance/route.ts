@@ -59,14 +59,17 @@ export async function PATCH(request: Request) {
   if (input.name && input.name !== auth.actor.name) return json({ error: "본인의 출결만 수정할 수 있어요." }, 403);
   const valid = validateEntry({ ...input, name: auth.actor.name });
   if (typeof valid === "string") return json({ error: valid }, 400);
-  const ownership = and(eq(attendance.id, input.id), eq(attendance.adminRecord, 0), or(eq(attendance.ownerId, auth.actor.id), and(isNull(attendance.ownerId), inArray(attendance.name, nameAliases(auth.actor.name)))));
+  const ownership = and(eq(attendance.id, input.id), or(eq(attendance.ownerId, auth.actor.id), and(isNull(attendance.ownerId), inArray(attendance.name, nameAliases(auth.actor.name)))));
   try {
     const db = getDb();
-    const [existing] = await db.select({ id: attendance.id }).from(attendance).where(ownership).limit(1);
-    if (!existing) return json({ error: "본인이 등록한 일반 출결만 수정할 수 있어요. 관리자 무단 기록은 수정할 수 없습니다." }, 403);
+    const [existing] = await db.select({ id: attendance.id, date: attendance.date, adminRecord: attendance.adminRecord, fineStatus: fines.status }).from(attendance).leftJoin(fines, eq(attendance.id, fines.attendanceId)).where(ownership).limit(1);
+    if (!existing) return json({ error: "본인의 출결만 수정할 수 있어요." }, 403);
+    // Members may change the type and reason of a 무단 record, but not its date; the 무단 mark and fine stay.
+    const unnotified = existing.adminRecord === 1 || (!!existing.fineStatus && existing.fineStatus !== "waived");
+    if (unnotified && valid.date !== existing.date) return json({ error: "무단 출결은 날짜를 바꿀 수 없어요. 사유와 상세 이유만 수정할 수 있어요." }, 403);
     const duplicate = await db.select({ id: attendance.id }).from(attendance).where(and(eq(attendance.date, valid.date), inArray(attendance.name, nameAliases(valid.name)), ne(attendance.id, input.id))).limit(1);
     if (duplicate.length) return json({ error: DAILY_LIMIT_MESSAGE }, 409);
-    const updated = await db.update(attendance).set({ ...valid, ownerId: auth.actor.id }).where(ownership).returning();
+    const updated = await db.update(attendance).set({ ...valid, ownerId: auth.actor.id }).where(and(ownership, eq(attendance.date, existing.date))).returning();
     if (!updated.length) return json({ error: "출결 상태가 바뀌었어요. 새로고침해 주세요." }, 409);
     return json({ entry: updated[0] });
   } catch (error) {
