@@ -257,6 +257,18 @@ git push origin main
 
 **Cloudflare Workers Builds의 GitHub 자동 배포가 켜져 있으면 main 푸시 후 빌드·배포됩니다. DB 스키마 SQL은 별도로 적용해야 합니다.** 문서만 수정할 때는 운영 사이트를 다시 배포할 필요가 없습니다.
 
+### 현재 계정의 비공개 Sites 미리보기 (2026-10-16)
+
+- URL: https://ssafy-class9-attendance-preview.ckdals5619.chatgpt.site/
+- 새 Sites project_id: `appgprj_6ad1e1fa9bb88191b73cbf44fcccb971`. 앱 `.openai/hosting.json`은 이 프로젝트를 가리킵니다.
+- 기존 true-isle 계정의 프로젝트는 현재 연결에서 NOT_FOUND여서, 사용자가 현재 계정에 새 비공개 사이트 생성을 승인했습니다. 기존 사이트·개인 Cloudflare 운영 앱·운영 DB는 변경하지 않았습니다.
+- owner-only custom 접근 유지, 최신 소스 배포 성공. 환경 설정 4개는 Sites 비밀 환경변수로 보관합니다. 비밀값은 Git에 없습니다.
+- 배포 ID: `appgdep_6ad1e40b2ac88191949228cdec8bb3bf`, Sites 소스 커밋: `44e25bff9974458685d138d6a223e78119ac1d13`, 환경 revision 1.
+- Sites가 스키마 마이그레이션 0000~0003을 적용했습니다. 회원 25개는 관리자 전용 `/api/admin/bootstrap`으로 초기화했으며, 재실행해도 기존 계정·비밀번호를 덮어쓰지 않습니다. 이 초기화 경로는 미리보기 소스 저장소에만 있습니다. D1 매개변수 제한을 피하도록 회원별 INSERT를 batch로 처리합니다. 조회용 Sites 도구로 테이블 생성 및 실제 관리자 로그인·캘린더 로딩을 확인했습니다.
+- 미리보기와 운영 DB는 분리되어 있습니다. 운영 출결·벌금을 미리보기로 복사하지 않았습니다. 미리보기에서 비밀번호를 바꿔도 운영 비밀번호는 바뀌지 않습니다.
+- 현재 PC의 별도 Sites 체크아웃: `outputs/attendance-sites-preview` (GitHub 제외, Sites 소스에는 저장됨). 원본 앱에서 복사했고 미리보기용 Vite 설정은 개인 Cloudflare D1 ID 대신 local-db를 사용합니다. 다음 수정은 Sites source helper로 이 프로젝트의 최신 소스를 연 후 반영합니다. 체크아웃이 없어졌다면 빈 폴더에서 같은 project_id의 소스를 복원합니다. 새 사이트를 다시 생성하지 않습니다.
+- 현재 저장소의 `ssafy-attendance/`는 개인 Cloudflare 배포용입니다. 이 폴더의 실제 D1 ID와 Workers Builds 설정은 유지합니다. Sites 미리보기 변경 사항을 동기화할 때 운영 설정과 미리보기 설정을 혼동하지 않습니다.
+
 ### Sites 배포
 
 설치된 Sites 스킬의 현재 지침과 도구 계약을 확인하고 진행합니다.
@@ -267,7 +279,7 @@ git push origin main
 4. 검증·빌드 후 source helper로 소스 동기화와 아카이브 준비를 수행합니다. 커밋과 아카이브는 같은 소스를 가리켜야 합니다.
 5. 기존 비공개 접근 정책을 유지해 `save_version_and_deploy_private`로 배포합니다. 대기 상태일 때만 상태를 조회하고 성공 결과를 기록합니다.
 
-현재 사이트와 마지막 기능 배포 결과:
+이전 계정의 Sites 배포 이력 (현재 연결에서는 접근 불가):
 
 ```text
 project_id: appgprj_6ad18f0b80f881919ae77217e7954e47
