@@ -31,3 +31,4 @@
 .field-hint{display:block;margin-top:6px;font-size:11px;color:#b0675b}
 .calendar-event{min-width:0;max-width:100%}.event-name{flex-shrink:0}.event-type{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .more-events{display:block;font-size:10px;font-weight:600;color:#3f6f58;background:#eef5ef;border-radius:3px;padding:2px 5px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}@media(max-width:700px){.more-events{font-size:9px;padding:2px 3px}}
+.sidebar-note strong,.sidebar-note p{position:relative;z-index:1;word-break:keep-all;overflow-wrap:break-word}.sidebar-note p{padding-right:18px}.sidebar-note:after{width:60px;height:60px;bottom:-34px;right:-26px;border-width:12px}
