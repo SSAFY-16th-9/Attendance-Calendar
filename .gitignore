@@ -1,0 +1,15 @@
+# Dependencies, local state, data and credentials
+node_modules/
+.sites-runtime/
+.wrangler/
+.vinext/
+.next/
+dist/
+outputs/
+*.tsbuildinfo
+.env*
+!.env.example
+.dev.vars*
+*.pem
+*.log
+.DS_Store

@@ -1,0 +1,9 @@
+{
+  "name": "attendance-calendar-workspace",
+  "private": true,
+  "scripts": {
+    "dev": "node --import ./ssafy-attendance/scripts/sites-env.mjs ./ssafy-attendance/scripts/run-framework.mjs dev",
+    "build": "node --import ./ssafy-attendance/scripts/sites-env.mjs ./ssafy-attendance/scripts/run-framework.mjs build",
+    "test": "node --experimental-strip-types --test ssafy-attendance/tests/*.test.mjs"
+  }
+}
