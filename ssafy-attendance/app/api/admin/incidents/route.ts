@@ -2,7 +2,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { getDb } from "@/db";
 import { attendance, fines, members } from "@/db/schema";
 import { privateJson, requireAdmin } from "@/lib/admin-auth";
-import { ABSENCE_LIMIT_MESSAGE, conflictingTypes, isAbsence, nameAliases, validateEntry } from "@/lib/attendance";
+import { DAILY_LIMIT_MESSAGE, nameAliases, validateEntry } from "@/lib/attendance";
 import { FINE_AMOUNT, isFineType } from "@/lib/fines";
 
 export const dynamic = "force-dynamic";
@@ -17,8 +17,8 @@ export async function POST(request: Request) {
     if (!member) return privateJson({ error: "등록된 회원을 선택해 주세요." }, 400);
     const valid = validateEntry({ ...input, name: member.name });
     if (typeof valid === "string") return privateJson({ error: valid }, 400);
-    const duplicate = await db.select({ id: attendance.id }).from(attendance).where(and(eq(attendance.date, valid.date), inArray(attendance.name, nameAliases(member.name)), inArray(attendance.type, conflictingTypes(valid.type)))).limit(1);
-    if (duplicate.length) return privateJson({ error: isAbsence(valid.type) ? ABSENCE_LIMIT_MESSAGE : "같은 출결이 이미 등록되어 있어요. 기존 출결의 상세에서 벌금을 부과해 주세요." }, 409);
+    const duplicate = await db.select({ id: attendance.id }).from(attendance).where(and(eq(attendance.date, valid.date), inArray(attendance.name, nameAliases(member.name)))).limit(1);
+    if (duplicate.length) return privateJson({ error: DAILY_LIMIT_MESSAGE }, 409);
     const now = new Date().toISOString(); const fineId = crypto.randomUUID();
     const entry = { ...valid, id: input.id, ownerId: member.id, adminRecord: 1, createdAt: now };
     await db.batch([

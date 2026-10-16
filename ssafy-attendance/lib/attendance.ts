@@ -9,11 +9,15 @@ export const TYPES = ["공가", "사유지각", "사유조퇴", "사유결석", 
 export type AttendanceType = typeof TYPES[number];
 export type AttendanceEntry = { id: string; date: string; name: string; type: AttendanceType; reason: string; createdAt: string; ownerId?: string | null; adminRecord?: number; unnotified?: boolean; fineId?: string | null; fineStatus?: string | null };
 
-// A person can have at most one absence (of either kind) per day.
-export const ABSENCE_TYPES = ["사유결석", "임의결석"] as const;
-export const isAbsence = (type: string) => ABSENCE_TYPES.includes(type as typeof ABSENCE_TYPES[number]);
-export const conflictingTypes = (type: AttendanceType): AttendanceType[] => isAbsence(type) ? [...ABSENCE_TYPES] : [type];
-export const ABSENCE_LIMIT_MESSAGE = "결석은 하루에 1명당 1건만 등록할 수 있어요. 같은 날짜의 기존 결석을 확인해 주세요.";
+// A person can have at most one attendance record per day; later changes go through editing.
+export const DAILY_LIMIT_MESSAGE = "이 날짜에는 이미 등록된 출결이 있어요. 한 날짜에 1명당 1건만 등록할 수 있으니 기존 출결을 수정해 주세요.";
+
+// Day lists show the viewer's own record first, then 조퇴 → 지각 → 결석 → 공가.
+const DISPLAY_ORDER: AttendanceType[] = ["사유조퇴", "임의조퇴", "사유지각", "임의지각", "사유결석", "임의결석", "공가"];
+export function sortForViewer<T extends { name: string; type: string }>(entries: T[], viewerName?: string | null) {
+  const mine = (entry: T) => viewerName && canonicalName(entry.name) === viewerName ? 0 : 1;
+  return [...entries].sort((a, b) => mine(a) - mine(b) || DISPLAY_ORDER.indexOf(a.type as AttendanceType) - DISPLAY_ORDER.indexOf(b.type as AttendanceType) || a.name.localeCompare(b.name, "ko"));
+}
 
 export const canonicalName = (name: string) => name === "이주연" ? "이주언" : name;
 export const nameAliases = (name: string) => name === "이주언" ? ["이주언", "이주연"] : [name];

@@ -1,7 +1,7 @@
 import { and, eq, inArray, like, isNull, ne, or } from "drizzle-orm";
 import { getDb } from "@/db";
 import { attendance, fines } from "@/db/schema";
-import { ABSENCE_LIMIT_MESSAGE, canonicalName, conflictingTypes, isAbsence, nameAliases, validateEntry } from "@/lib/attendance";
+import { DAILY_LIMIT_MESSAGE, canonicalName, nameAliases, validateEntry } from "@/lib/attendance";
 import { DELETE as adminDelete } from "@/app/api/admin/attendance/route";
 import { requireActor } from "@/lib/site-auth";
 
@@ -39,8 +39,8 @@ export async function POST(request: Request) {
   if (typeof valid === "string") return json({ error: valid }, 400);
   try {
     const entry = { ...valid, id: crypto.randomUUID(), createdAt: new Date().toISOString(), ownerId: auth.actor.id, adminRecord: 0 };
-    const duplicate = await getDb().select({ id: attendance.id }).from(attendance).where(and(eq(attendance.date, valid.date), inArray(attendance.name, nameAliases(valid.name)), inArray(attendance.type, conflictingTypes(valid.type)))).limit(1);
-    if (duplicate.length) return json({ error: isAbsence(valid.type) ? ABSENCE_LIMIT_MESSAGE : "같은 날짜에 동일한 이름과 사유가 이미 등록되어 있어요." }, 409);
+    const duplicate = await getDb().select({ id: attendance.id }).from(attendance).where(and(eq(attendance.date, valid.date), inArray(attendance.name, nameAliases(valid.name)))).limit(1);
+    if (duplicate.length) return json({ error: DAILY_LIMIT_MESSAGE }, 409);
     const saved = await getDb().insert(attendance).values(entry).onConflictDoNothing().returning();
     if (!saved.length) return json({ error: "같은 날짜에 동일한 이름과 사유가 이미 등록되어 있어요." }, 409);
     return json({ entry: saved[0] }, 201);
@@ -64,8 +64,8 @@ export async function PATCH(request: Request) {
     const db = getDb();
     const [existing] = await db.select({ id: attendance.id }).from(attendance).where(ownership).limit(1);
     if (!existing) return json({ error: "본인이 등록한 일반 출결만 수정할 수 있어요. 관리자 무단 기록은 수정할 수 없습니다." }, 403);
-    const duplicate = await db.select({ id: attendance.id }).from(attendance).where(and(eq(attendance.date, valid.date), inArray(attendance.name, nameAliases(valid.name)), inArray(attendance.type, conflictingTypes(valid.type)), ne(attendance.id, input.id))).limit(1);
-    if (duplicate.length) return json({ error: isAbsence(valid.type) ? ABSENCE_LIMIT_MESSAGE : "같은 날짜와 사유의 출결이 이미 있어요." }, 409);
+    const duplicate = await db.select({ id: attendance.id }).from(attendance).where(and(eq(attendance.date, valid.date), inArray(attendance.name, nameAliases(valid.name)), ne(attendance.id, input.id))).limit(1);
+    if (duplicate.length) return json({ error: DAILY_LIMIT_MESSAGE }, 409);
     const updated = await db.update(attendance).set({ ...valid, ownerId: auth.actor.id }).where(ownership).returning();
     if (!updated.length) return json({ error: "출결 상태가 바뀌었어요. 새로고침해 주세요." }, 409);
     return json({ entry: updated[0] });

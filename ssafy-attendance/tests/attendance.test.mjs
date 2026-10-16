@@ -51,9 +51,12 @@ test('calendar keys are zero padded and today follows Korea time', () => {
   assert.equal(koreaToday(), new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()));
 });
 
-test('absences of either kind conflict so each person has at most one per day', async () => {
-  const { conflictingTypes, isAbsence } = await import('../lib/attendance.ts');
-  assert.deepEqual(conflictingTypes('사유결석'), ['사유결석', '임의결석']);
-  assert.deepEqual(conflictingTypes('임의결석'), ['사유결석', '임의결석']);
-  for (const type of ['공가', '사유지각', '사유조퇴', '임의지각', '임의조퇴']) { assert.equal(isAbsence(type), false); assert.deepEqual(conflictingTypes(type), [type]); }
+test('day lists put the viewer first, then group early leave, tardiness, absence and leave', async () => {
+  const { sortForViewer } = await import('../lib/attendance.ts');
+  const entries = [
+    { name: '강유빈', type: '공가' }, { name: '고태호', type: '사유결석' }, { name: '김별찬', type: '임의지각' },
+    { name: '이주연', type: '공가' }, { name: '박은빈', type: '사유조퇴' }, { name: '김세진', type: '사유지각' },
+  ];
+  assert.deepEqual(sortForViewer(entries, '이주언').map(e => e.name), ['이주연', '박은빈', '김세진', '김별찬', '고태호', '강유빈']);
+  assert.deepEqual(sortForViewer(entries).map(e => e.type), ['사유조퇴', '사유지각', '임의지각', '사유결석', '공가', '공가']);
 });
