@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, CalendarDays, CalendarPlus, Check, ChevronDown, ChevronLeft, ChevronRight, CircleHelp, Clock3, Flower2, Info, Layers2, LoaderCircle, Plus, Search, Sparkles, ShieldCheck, Users, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, CalendarDays, CalendarPlus, Check, ChevronDown, ChevronLeft, ChevronRight, CircleHelp, Clock3, Flower2, Info, Layers2, LoaderCircle, Plus, Search, Sparkles, ShieldCheck, Wallet, Users, X } from "lucide-react";
 import { AttendanceEntry, AttendanceType, dateKey, koreaToday, MEMBERS, TYPES } from "@/lib/attendance";
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
@@ -99,7 +99,7 @@ export default function Home() {
       <a className="brand" href="/" aria-label="출결 모아 홈"><span className="brand-symbol"><Layers2 size={24} strokeWidth={2} /></span><span>출결 모아<span className="brand-caption">우리 반의 하루를 함께</span></span></a>
       <div className="class-card"><span className="class-icon">09<span>CLASS</span></span><div><strong>SSAFY 16기 9반</strong><p>24명이 함께하는 공간</p></div><span className="class-online" title="우리 반 공간" /></div>
       <div className="nav-heading">우리 반 공간</div>
-      <nav aria-label="주 메뉴"><button className="nav-item active" onClick={() => { setSideOpen(true); setFilter("all"); setSearch(""); }}><CalendarDays size={19} /><span>출결 캘린더</span><span className="nav-dot" /></button><button className="nav-item" onClick={() => { setMemberSearch(""); setInfoDialog("members"); }}><Users size={19} /><span>우리 반 명단</span><span className="nav-count">24</span></button></nav>
+      <nav aria-label="주 메뉴"><button className="nav-item active" onClick={() => { setSideOpen(true); setFilter("all"); setSearch(""); }}><CalendarDays size={19} /><span>출결 캘린더</span><span className="nav-dot" /></button><button className="nav-item" onClick={() => { setMemberSearch(""); setInfoDialog("members"); }}><Users size={19} /><span>우리 반 명단</span><span className="nav-count">24</span></button><a className="nav-item fines-nav" href="/fines"><Wallet size={19} /><span>벌금 현황</span></a></nav>
       <div className="sidebar-note"><span className="note-flower"><Flower2 size={29} strokeWidth={1.5} /></span><strong>작은 공유가 만드는<br />편안한 하루.</strong><p>미리 알려주면, 서로의 하루를<br />조금 더 잘 이해할 수 있어요.</p><span className="note-line" /></div>
       <div className="sidebar-bottom"><a className="nav-item admin-nav" href="/admin"><ShieldCheck size={18} /><span>관리자 페이지</span><ChevronRight size={15} /></a><button className="nav-item" onClick={() => setInfoDialog("guide")}><CircleHelp size={18} /><span>이용 가이드</span><ArrowRight size={15} /></button><div className="sidebar-footer"><span className="footer-dot" /> SSAFY 16TH <span>CLASS 09</span></div></div>
     </aside>
