@@ -164,6 +164,26 @@ npm run build
 
 ## GitHub 저장과 Sites 운영 배포
 
+### 개인 Cloudflare 계정에서 웹페이지로 배포
+
+2026-10-16 개인 Cloudflare D1 연결을 설정했습니다. 운영 이전은 아직 확인하지 않았습니다.
+
+- D1 ID: `af02ad36-6512-4dc0-ae8a-18ed5976bc66`
+- D1 바인딩: `DB`, 설정상 DB 이름: `ssafy-attendance-db`
+- 연결 설정은 `ssafy-attendance/vite.config.ts`에 있으며 빌드 시 `dist/server/wrangler.json`에 반영됩니다. 생성 파일은 직접 수정하지 않습니다.
+- Cloudflare Workers GitHub 연결: 저장소 `SSAFY-16th-9/Attendance-Calendar`, 브랜치 `main`
+- Project name: `ssafy-attendance-calendar`
+- Advanced settings → Path: `/ssafy-attendance`
+- Build command: `npm run build`
+- Deploy command: `npx wrangler deploy --config dist/server/wrangler.json`
+- 초기 설정에서는 Preview builds를 끕니다. 공개 방문을 원하면 Cloudflare Access를 끕니다.
+- 새 D1에 테이블 두 개와 중복 방지 인덱스를 생성해야 합니다. 앞선 SQL 오류의 해결 여부는 아직 확인하지 못했습니다. 테이블을 삭제하거나 초기 SQL을 무조건 재실행하지 않습니다.
+- 관리자 설정 4개는 배포된 Worker의 Settings → Variables and Secrets에 Secret으로 등록합니다. 빌드용 환경변수와 구분하며 비밀번호 원문 대신 해시를 사용합니다.
+- 기존 Sites DB·비밀 설정은 개인 Cloudflare 계정으로 자동 이전되지 않습니다.
+- 배포 후 발급된 `workers.dev` 주소에서 등록·조회·관리자 로그인까지 검증해야 이전 완료입니다. 이 계정의 공개 앱에서는 기존 Sites 방문 제한이 적용되지 않습니다.
+
+아래 Sites 배포 절차는 기존 호스팅 유지·복구용입니다. 개인 Cloudflare 웹 배포는 위 설정을 사용합니다.
+
 **GitHub 기준 저장소는 이 문서가 있는 최상위 폴더입니다.** 앱 전체 파일이 일반 소스로 커밋되어야 하며 `ssafy-attendance`가 `160000` 모드의 gitlink로 올라가면 안 됩니다.
 
 현재 PC에는 Sites 소스 동기화용 `ssafy-attendance/.git`도 있습니다. 이 로컬 메타데이터는 GitHub에 포함하지 않습니다. 새 GitHub 복제본에는 중첩 `.git`이 없습니다. 명령 실행 위치를 확인해 GitHub 저장소와 Sites 소스 저장소를 혼동하지 않습니다.
