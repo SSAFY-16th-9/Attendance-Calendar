@@ -9,6 +9,12 @@ export const TYPES = ["공가", "사유지각", "사유조퇴", "사유결석", 
 export type AttendanceType = typeof TYPES[number];
 export type AttendanceEntry = { id: string; date: string; name: string; type: AttendanceType; reason: string; createdAt: string; ownerId?: string | null; adminRecord?: number; unnotified?: boolean; fineId?: string | null; fineStatus?: string | null };
 
+// A person can have at most one absence (of either kind) per day.
+export const ABSENCE_TYPES = ["사유결석", "임의결석"] as const;
+export const isAbsence = (type: string) => ABSENCE_TYPES.includes(type as typeof ABSENCE_TYPES[number]);
+export const conflictingTypes = (type: AttendanceType): AttendanceType[] => isAbsence(type) ? [...ABSENCE_TYPES] : [type];
+export const ABSENCE_LIMIT_MESSAGE = "결석은 하루에 1명당 1건만 등록할 수 있어요. 같은 날짜의 기존 결석을 확인해 주세요.";
+
 export const canonicalName = (name: string) => name === "이주연" ? "이주언" : name;
 export const nameAliases = (name: string) => name === "이주언" ? ["이주언", "이주연"] : [name];
 

@@ -50,3 +50,10 @@ test('calendar keys are zero padded and today follows Korea time', () => {
   assert.equal(dateKey(2026, 0, 3), '2026-01-03');
   assert.equal(koreaToday(), new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()));
 });
+
+test('absences of either kind conflict so each person has at most one per day', async () => {
+  const { conflictingTypes, isAbsence } = await import('../lib/attendance.ts');
+  assert.deepEqual(conflictingTypes('사유결석'), ['사유결석', '임의결석']);
+  assert.deepEqual(conflictingTypes('임의결석'), ['사유결석', '임의결석']);
+  for (const type of ['공가', '사유지각', '사유조퇴', '임의지각', '임의조퇴']) { assert.equal(isAbsence(type), false); assert.deepEqual(conflictingTypes(type), [type]); }
+});
