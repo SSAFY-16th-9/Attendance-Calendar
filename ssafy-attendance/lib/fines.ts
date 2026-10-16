@@ -1,12 +1,12 @@
-import { canonicalName, MEMBERS } from "./attendance.ts";
+import { canonicalName, MEMBERS, TYPES } from "./attendance.ts";
 
 export const FINE_AMOUNT = 5000;
-export const FINE_TYPES = ["임의지각", "임의결석"] as const;
+// Admins may assess any attendance type once they confirm it was unnotified.
+export const FINE_TYPES = TYPES;
 export const FINE_STATUSES = ["unpaid", "paid", "waived"] as const;
 export type FineStatus = typeof FINE_STATUSES[number];
 export const STATUS_LABELS: Record<FineStatus, string> = { unpaid: "미납", paid: "납부 완료", waived: "부과 취소" };
 export type Fine = { id: string; attendanceId: string; date: string; name: string; type: string; amount: number; status: FineStatus; paidAt: string | null; createdAt: string; updatedAt: string; revision: number };
-export type FineCandidate = { id: string; date: string; name: string; type: string };
 export type FineReport = { entries: Fine[]; summary: FineSummary; people: PersonFineSummary[]; total: number; page: number; pageSize: number };
 export type FineSummary = { assessed: number; collected: number; outstanding: number; unpaidCount: number; paidCount: number; waivedCount: number };
 export type PersonFineSummary = FineSummary & { name: string };

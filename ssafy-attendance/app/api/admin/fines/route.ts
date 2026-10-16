@@ -1,27 +1,10 @@
-import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { getDb } from "@/db";
-import { attendance, fines } from "@/db/schema";
+import { fines } from "@/db/schema";
 import { privateJson, requireAdmin } from "@/lib/admin-auth";
-import { canonicalName } from "@/lib/attendance";
-import { FINE_AMOUNT, FINE_TYPES, validateFineStatus } from "@/lib/fines";
+import { FINE_AMOUNT, validateFineStatus } from "@/lib/fines";
 
 export const dynamic = "force-dynamic";
-export async function GET(request: Request) {
-  const denied = await requireAdmin(request);
-  if (denied) return denied;
-  const page = Number(new URL(request.url).searchParams.get("page") || 1);
-  if (!Number.isSafeInteger(page) || page < 1 || page > 100000) return privateJson({ error: "페이지를 확인해 주세요." }, 400);
-  try {
-    const db = getDb();
-    const where = and(inArray(attendance.type, [...FINE_TYPES]), isNull(fines.id));
-    const [entries, totals] = await Promise.all([
-      db.select({ id: attendance.id, date: attendance.date, name: attendance.name, type: attendance.type }).from(attendance).leftJoin(fines, eq(attendance.id, fines.attendanceId)).where(where).orderBy(sql`${attendance.date} desc`, attendance.name).limit(50).offset((page - 1) * 50),
-      db.select({ total: sql<number>`count(*)` }).from(attendance).leftJoin(fines, eq(attendance.id, fines.attendanceId)).where(where),
-    ]);
-    return privateJson({ entries: entries.map(entry => ({ ...entry, name: canonicalName(entry.name) })), total: totals[0].total, page, pageSize: 50 });
-  } catch (error) { console.error("Fine candidates failed", error); return privateJson({ error: "부과 대상을 불러오지 못했어요. 벌금 테이블 설정을 확인해 주세요." }, 503); }
-}
-
 export async function POST(request: Request) {
   const denied = await requireAdmin(request);
   if (denied) return denied;
@@ -36,7 +19,7 @@ export async function POST(request: Request) {
     // Conditional insert rechecks eligibility and snapshots the attendance in one statement.
     const inserted = await db.run(sql`INSERT INTO fines (id, attendance_id, date, name, type, amount, status, paid_at, created_at, updated_at, revision)
       SELECT ${id}, id, date, name, type, ${FINE_AMOUNT}, 'unpaid', NULL, ${now}, ${now}, 0 FROM attendance
-      WHERE id = ${input.attendanceId} AND type IN (${FINE_TYPES[0]}, ${FINE_TYPES[1]})
+      WHERE id = ${input.attendanceId}
       ON CONFLICT(attendance_id) DO NOTHING`);
     if (!inserted.meta.changes) return privateJson({ error: "이미 부과했거나 출결이 변경·삭제되었어요. 목록을 새로고침해 주세요." }, 409);
     return privateJson({ created: true }, 201);

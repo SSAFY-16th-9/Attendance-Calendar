@@ -1,11 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, CalendarDays, CalendarPlus, Check, ChevronDown, ChevronLeft, ChevronRight, CircleHelp, Clock3, Flower2, Info, Layers2, LoaderCircle, Plus, Search, Sparkles, ShieldCheck, Wallet, Users, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, CalendarDays, CalendarPlus, Check, ChevronDown, ChevronLeft, ChevronRight, CircleHelp, Flower2, Info, Layers2, LoaderCircle, Plus, Search, Sparkles, ShieldCheck, Wallet, Users, X } from "lucide-react";
 import { AttendanceEntry, AttendanceType, dateKey, koreaToday, MEMBERS, TYPES } from "@/lib/attendance";
 import { useAuth } from "@/components/auth-provider";
 import AttendanceEditor from "@/components/attendance-editor";
-import InlineFineAction from "@/components/inline-fine-action";
+import EntryDetailDialog from "@/components/entry-detail-dialog";
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 const MONTHS = ["JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE", "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER"];
@@ -23,7 +23,7 @@ export default function Home() {
   const [error, setError] = useState("");
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
-  const [expanded, setExpanded] = useState<string | null>(null);
+  const [detailName, setDetailName] = useState<string | null>(null);
   const [sideOpen, setSideOpen] = useState(true);
   const [toast, setToast] = useState("");
 
@@ -73,7 +73,7 @@ export default function Home() {
   useEffect(() => { if (infoDialog) infoRef.current?.showModal(); else infoRef.current?.close(); }, [infoDialog]);
 
   function selectDate(date: string) {
-    setSelectedDate(date); setSideOpen(true); setExpanded(null);
+    setSelectedDate(date); setSideOpen(true); setDetailName(null);
     if (!date.startsWith(monthKey)) setMonth({ year: Number(date.slice(0, 4)), month: Number(date.slice(5, 7)) - 1 });
     requestAnimationFrame(() => { if (window.innerWidth <= 1050) detailRef.current?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth", block: "start" }); });
   }
@@ -81,7 +81,7 @@ export default function Home() {
     const next = new Date(month.year, month.month + offset, 1);
     if (next.getFullYear() < 2000 || next.getFullYear() > 2100) return;
     setMonth({ year: next.getFullYear(), month: next.getMonth() });
-    setSelectedDate(dateKey(next.getFullYear(), next.getMonth(), 1)); setExpanded(null);
+    setSelectedDate(dateKey(next.getFullYear(), next.getMonth(), 1)); setDetailName(null);
   }
 
   const visibleEntries = entries.filter(entry => (filter === "all" || entry.type === filter) && entry.name.includes(search.trim()));
@@ -98,6 +98,7 @@ export default function Home() {
 
   const [registration, setRegistration] = useState<{ date: string; entry?: AttendanceEntry } | null>(null);
   const register = (date = selectedDate || today) => setRegistration({ date });
+  const closeDetail = useCallback(() => setDetailName(null), []);
 
   return <div className="app-shell">
     <aside className="sidebar">
@@ -127,8 +128,8 @@ export default function Home() {
           </section>
           {sideOpen && <aside ref={detailRef} className="detail-panel" aria-label="선택한 날짜의 출결"><div className="detail-header"><span className="detail-eyebrow">DAILY ATTENDANCE</span><button className="icon-button" aria-label="날짜 상세 닫기" onClick={() => setSideOpen(false)}><X size={17} /></button></div><div className="detail-date"><h2>{selectedDate ? `${Number(selectedDate.slice(5, 7))}월 ${Number(selectedDate.slice(8, 10))}일` : "날짜 선택"}</h2>{selectedDate === today && <span className="today-tag">오늘</span>}</div><p className="detail-weekday">{selectedDate && `${selectedDate.slice(0, 4)}년 ${WEEKDAYS[new Date(`${selectedDate}T12:00:00+09:00`).getDay()]}요일`}</p><div className="detail-summary"><span>이날의 출결 <b>{names.length}</b><small>명</small></span><span>{dayEntries.length}건{filtered ? " · 필터 적용" : ""}</span></div>
             <div className="people-list">{loading ? <div className="panel-empty"><LoaderCircle size={26} className="spin" /><p>출결을 불러오고 있어요.</p></div> : error ? <div className="panel-empty"><Info size={28} /><strong>잠시 연결이 끊겼어요</strong><p>다시 불러오기를 눌러 주세요.</p><button className="text-button" onClick={() => refresh()}>다시 불러오기</button></div> : names.length ? names.map((name, index) => {
-              const items = dayEntries.filter(entry => entry.name === name); const open = expanded === name;
-              return <div className={`person-card ${open ? "expanded" : ""}`} key={name}><button className="person-toggle" aria-expanded={open} aria-controls={`person-${name}`} onClick={() => { setExpanded(open ? null : name); }}><span className={`person-avatar avatar-${index % 4}`}>{name.slice(1)}</span><strong>{name}</strong><span className={`type-badge ${items[0].unnotified ? "unnotified" : typeClass(items[0].type)}`}>{items[0].unnotified ? "무단 · " : ""}{items[0].type}{items.length > 1 && ` +${items.length - 1}`}</span><ChevronDown size={15} className="accordion-chevron" /></button>{open && <div className="person-details" id={`person-${name}`}>{items.map(entry => <div className="entry-detail" key={entry.id}><div className="entry-type-line"><span className={`type-badge ${entry.unnotified ? "unnotified" : typeClass(entry.type)}`}>{entry.unnotified ? "무단 · " : ""}{entry.type}</span><span>출결 사유</span></div><label>상세 이유</label><p className={!entry.reason ? "no-reason" : ""}>{entry.reason || "작성된 상세 이유가 없어요."}</p><div className="entry-footer"><span><Clock3 size={12} />{new Date(entry.createdAt).toLocaleDateString("ko-KR", { month: "long", day: "numeric", timeZone: "Asia/Seoul" })} 등록</span>{user?.role === "member" && user.name === entry.name && !entry.adminRecord && <button className="own-edit-button" onClick={() => setRegistration({ date: entry.date, entry })}>내 출결 수정</button>}{user?.role === "admin" && <a className="admin-edit-link" href="/admin">출결 관리</a>}</div>{user?.role === "admin" && <InlineFineAction entry={entry} onChanged={() => refresh(true)} />}</div>)}</div>}</div>;
+              const items = dayEntries.filter(entry => entry.name === name);
+              return <div className="person-card" key={name}><button className="person-toggle" aria-haspopup="dialog" onClick={() => setDetailName(name)}><span className={`person-avatar avatar-${index % 4}`}>{name.slice(1)}</span><strong>{name}</strong><span className={`type-badge ${items[0].unnotified ? "unnotified" : typeClass(items[0].type)}`}>{items[0].unnotified ? "무단 · " : ""}{items[0].type}{items.length > 1 && ` +${items.length - 1}`}</span><ChevronRight size={15} className="person-chevron" /></button></div>;
             }) : <div className="panel-empty"><div className="empty-calendar"><CalendarDays size={35} strokeWidth={1.35} /><span><Check size={12} strokeWidth={3} /></span></div><strong>{filtered ? "검색된 출결이 없어요" : "아직 등록된 출결이 없어요"}</strong><p>{filtered ? <>이름이나 사유 필터를 바꾸어<br />다시 확인해 보세요.</> : <>예정된 지각, 조퇴, 결석이 있다면<br />우리 반에 미리 알려주세요.</>}</p>{filtered && <button className="text-button" onClick={() => { setFilter("all"); setSearch(""); }}>필터 초기화</button>}</div>}</div>
             <button className="day-register" onClick={() => register()}><Plus size={16} />이 날짜에 출결 등록</button><div className="detail-tip"><span><Info size={15} /></span><p>이름을 누르면 상세 이유를 볼 수 있어요.<br /><b>상세 이유 작성은 선택 사항이에요.</b></p></div>
           </aside>}
@@ -136,8 +137,9 @@ export default function Home() {
         <footer className="main-footer"><span><Layers2 size={14} />출결 모아 <i />서로를 위한 작은 공유</span><span>Made for SSAFY 16기 9반 <span className="footer-heart">♡</span></span></footer>
       </main>
     </div>
-    <AttendanceEditor data={registration} onClose={() => setRegistration(null)} onSaved={entry => { selectDate(entry.date); setFilter("all"); setSearch(""); setExpanded(entry.name); if (entry.date.startsWith(monthKey)) { setEntries(items => [...items.filter(item => item.id !== entry.id), entry].sort((a, b) => a.name.localeCompare(b.name, "ko"))); refresh(true); } setToast(`${entry.name}님의 출결을 등록했어요.`); }} />
-    <dialog ref={infoRef} className="modal info-modal" onCancel={() => setInfoDialog(null)} onClick={event => { if (event.target === event.currentTarget) { const r = event.currentTarget.getBoundingClientRect(); if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) setInfoDialog(null); } }}><div className="modal-header"><div><span className="eyebrow">OUR CLASS</span><h2>{infoDialog === "members" ? "함께하는 우리 반" : "출결 모아 이용 가이드"}</h2></div><button className="icon-button" onClick={() => setInfoDialog(null)} aria-label="닫기"><X size={21} /></button></div>{infoDialog === "members" ? <><p className="modal-description">SSAFY 16기 9반 · 총 {MEMBERS.length}명</p><label className="member-search"><Search size={17} /><input aria-label="반 명단 이름 검색" placeholder="이름을 검색해 보세요" value={memberSearch} onChange={event => setMemberSearch(event.target.value)} /></label><div className="member-grid">{MEMBERS.filter(name => name.includes(memberSearch.trim())).map((name, index) => <div key={name}><span className={`person-avatar avatar-${index % 4}`}>{name.slice(1)}</span><strong>{name}</strong></div>)}</div>{!MEMBERS.some(name => name.includes(memberSearch.trim())) && <p className="no-results">검색 결과가 없어요.</p>}</> : <div className="guide-content"><div><span>01</span><section><h3>출결을 미리 공유해요</h3><p>출결 등록 버튼에서 날짜와 사유를 선택해 주세요. 이름은 로그인한 회원으로 자동 저장됩니다.</p></section></div><div><span>02</span><section><h3>꼭 필요한 정보만 간단하게</h3><p>이름과 출결 사유는 필수예요. 상세 이유는 필요할 때만 작성해 주세요.</p></section></div><div><span>03</span><section><h3>날짜를 누르면 한눈에</h3><p>캘린더에는 이름과 사유가 표시돼요. 날짜를 선택하면 오른쪽에 명단이 나오고, 이름을 누르면 상세 이유가 펼쳐져요.</p></section></div><div><span>04</span><section><h3>함께 보는 같은 캘린더</h3><p>등록한 내용은 서버에 저장되며 접속한 사람들과 공유돼요. 화면은 15초마다 새로 확인해요. 본인의 일반 출결은 상세에서 수정할 수 있어요. 관리자 무단 기록과 삭제는 관리자에게 요청해 주세요.</p></section></div></div>}<div className="info-modal-footer"><button className="primary-button" onClick={() => setInfoDialog(null)}>확인했어요<Check size={16} /></button></div></dialog>
+    <EntryDetailDialog name={detailName} entries={detailName ? dayEntries.filter(entry => entry.name === detailName) : []} onClose={closeDetail} onEdit={entry => { setDetailName(null); setRegistration({ date: entry.date, entry }); }} onChanged={message => { refresh(true); if (message) setToast(message); }} />
+    <AttendanceEditor data={registration} onClose={() => setRegistration(null)} onSaved={entry => { selectDate(entry.date); setFilter("all"); setSearch(""); if (entry.date.startsWith(monthKey)) { setEntries(items => [...items.filter(item => item.id !== entry.id), entry].sort((a, b) => a.name.localeCompare(b.name, "ko"))); refresh(true); } setToast(entry.fineId ? `${entry.name}님의 무단 출결과 벌금을 등록했어요.` : `${entry.name}님의 출결을 등록했어요.`); }} />
+    <dialog ref={infoRef} className="modal info-modal" onCancel={() => setInfoDialog(null)} onClick={event => { if (event.target === event.currentTarget) { const r = event.currentTarget.getBoundingClientRect(); if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) setInfoDialog(null); } }}><div className="modal-header"><div><span className="eyebrow">OUR CLASS</span><h2>{infoDialog === "members" ? "함께하는 우리 반" : "출결 모아 이용 가이드"}</h2></div><button className="icon-button" onClick={() => setInfoDialog(null)} aria-label="닫기"><X size={21} /></button></div>{infoDialog === "members" ? <><p className="modal-description">SSAFY 16기 9반 · 총 {MEMBERS.length}명</p><label className="member-search"><Search size={17} /><input aria-label="반 명단 이름 검색" placeholder="이름을 검색해 보세요" value={memberSearch} onChange={event => setMemberSearch(event.target.value)} /></label><div className="member-grid">{MEMBERS.filter(name => name.includes(memberSearch.trim())).map((name, index) => <div key={name}><span className={`person-avatar avatar-${index % 4}`}>{name.slice(1)}</span><strong>{name}</strong></div>)}</div>{!MEMBERS.some(name => name.includes(memberSearch.trim())) && <p className="no-results">검색 결과가 없어요.</p>}</> : <div className="guide-content"><div><span>01</span><section><h3>출결을 미리 공유해요</h3><p>출결 등록 버튼에서 날짜와 사유를 선택해 주세요. 이름은 로그인한 회원으로 자동 저장됩니다.</p></section></div><div><span>02</span><section><h3>꼭 필요한 정보만 간단하게</h3><p>이름과 출결 사유는 필수예요. 상세 이유는 필요할 때만 작성해 주세요.</p></section></div><div><span>03</span><section><h3>날짜를 누르면 한눈에</h3><p>캘린더에는 이름과 사유가 표시돼요. 날짜를 선택하면 오른쪽에 명단이 나오고, 이름을 누르면 상세 이유가 팝업으로 열려요.</p></section></div><div><span>04</span><section><h3>함께 보는 같은 캘린더</h3><p>등록한 내용은 서버에 저장되며 접속한 사람들과 공유돼요. 화면은 15초마다 새로 확인해요. 본인의 일반 출결은 상세 팝업에서 수정할 수 있어요. 관리자 무단 기록과 삭제는 관리자에게 요청해 주세요.</p></section></div></div>}<div className="info-modal-footer"><button className="primary-button" onClick={() => setInfoDialog(null)}>확인했어요<Check size={16} /></button></div></dialog>
     {toast && <div className="toast" role="status"><Check size={17} /><span>{toast}</span><button onClick={() => setToast("")} aria-label="알림 닫기"><X size={15} /></button></div>}
   </div>;
 }

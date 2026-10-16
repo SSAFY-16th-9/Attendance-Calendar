@@ -2,11 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { FINE_AMOUNT, isFineType, summarizeFines, summarizePeople, validateFineStatus } from '../lib/fines.ts';
 
-test('only unnotified instances of arbitrary tardiness or absence can be assessed by an admin', () => {
+test('admins can assess any attendance type, and only known types', () => {
   assert.equal(FINE_AMOUNT, 5000);
-  assert.equal(isFineType('임의지각'), true);
-  assert.equal(isFineType('임의결석'), true);
-  for (const type of ['임의조퇴', '공가', '사유지각', '사유조퇴', '사유결석', '무단']) assert.equal(isFineType(type), false);
+  for (const type of ['공가', '사유지각', '사유조퇴', '사유결석', '임의지각', '임의조퇴', '임의결석']) assert.equal(isFineType(type), true);
+  for (const type of ['무단', '', '지각']) assert.equal(isFineType(type), false);
 });
 
 test('cancelled fines are excluded from assessed, collected, and outstanding money', () => {
