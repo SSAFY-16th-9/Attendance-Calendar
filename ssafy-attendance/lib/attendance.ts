@@ -2,12 +2,12 @@ export const MEMBERS = [
   "이주언", "황규진", "남윤혁", "최성현", "임장원", "박재성",
   "전현민", "이지호", "김세진", "고태호", "강유빈", "이승하",
   "박시은", "이지현", "이창준", "홍정현", "김별찬", "박은빈",
-  "이하람", "이미지", "손창민", "정인아", "황인규", "조석래",
+  "이하람", "이미지", "손창민", "정인아", "황인규", "조석래", "김승환",
 ] as const;
 
 export const TYPES = ["공가", "사유지각", "사유조퇴", "사유결석", "임의지각", "임의조퇴", "임의결석"] as const;
 export type AttendanceType = typeof TYPES[number];
-export type AttendanceEntry = { id: string; date: string; name: string; type: AttendanceType; reason: string; createdAt: string };
+export type AttendanceEntry = { id: string; date: string; name: string; type: AttendanceType; reason: string; createdAt: string; ownerId?: string | null; adminRecord?: number; unnotified?: boolean; fineId?: string | null; fineStatus?: string | null };
 
 export const canonicalName = (name: string) => name === "이주연" ? "이주언" : name;
 export const nameAliases = (name: string) => name === "이주언" ? ["이주언", "이주연"] : [name];

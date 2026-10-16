@@ -1,0 +1,75 @@
+// Run only against the disposable .wrangler/member-qa preview described in README.
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { createSession } from '../../lib/admin-session.ts';
+
+const base = process.env.QA_BASE_URL;
+assert.ok(base && new URL(base).hostname === '127.0.0.1', 'QA_BASE_URL must name the isolated loopback QA preview');
+const vars = Object.fromEntries(readFileSync('.dev.vars', 'utf8').split(/\r?\n/).filter(l => /^[A-Z_]+=/.test(l)).map(l => { const i = l.indexOf('='); return [l.slice(0, i), l.slice(i + 1).replace(/^(["'])(.*)\1$/, '$2')]; }));
+const admin = { cookie: `ssafy_admin_local=${await createSession(vars.ADMIN_USERNAME || 'admin', vars.ADMIN_SESSION_SECRET)}` };
+const a = { cookie: '' }, b = { cookie: '' };
+let checks = 0;
+async function request(path, method = 'GET', body, jar = { cookie: '' }, expected = 200) {
+  const r = await fetch(base + path, { method, redirect: 'manual', headers: { Connection: 'close', Origin: base, Cookie: jar.cookie, ...(body ? { 'Content-Type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined });
+  for (const line of r.headers.getSetCookie()) {
+    const cookie = line.split(';')[0];
+    const name = cookie.slice(0, cookie.indexOf('='));
+    jar.cookie = [...jar.cookie.split('; ').filter(c => c && !c.startsWith(name + '=')), cookie].join('; ');
+  }
+  const text = await r.text();
+  assert.equal(r.status, expected, `${method} ${path}: ${text.slice(0, 240)}`); checks++;
+  return { response: r, data: r.headers.get('content-type')?.includes('application/json') ? JSON.parse(text) : text };
+}
+await request('/', 'GET', undefined, undefined, 303);
+await request('/api/attendance?month=2099-10', 'GET', undefined, undefined, 401);
+await request('/api/fines', 'GET', undefined, undefined, 401);
+await request('/api/session', 'POST', { username: 'albert08', password: 'albert08' }, a);
+await request('/api/attendance?month=2099-10', 'GET', undefined, a, 403);
+const oldA = { ...a };
+await request('/api/account', 'PATCH', { currentPassword: 'albert08', newPassword: 'QA-member-A-unique-2026' }, a);
+await request('/api/session', 'GET', undefined, oldA).then(({ data }) => assert.equal(data.user, null));
+await request('/api/session', 'POST', { username: 'alyssa1107', password: 'alyssa1107' }, b);
+await request('/api/account', 'PATCH', { currentPassword: 'alyssa1107', newPassword: 'QA-member-B-unique-2026' }, b);
+const own = (await request('/api/attendance', 'POST', { date: '2099-10-16', type: '임의지각', reason: 'QA only', ownerId: 'forged' }, a, 201)).data.entry;
+assert.equal(own.name, '임장원');
+await request('/api/attendance', 'POST', { date: '2099-10-16', name: '이지호', type: '공가' }, a, 403);
+await request('/api/attendance', 'PATCH', { ...own, reason: 'not mine' }, b, 403);
+await request('/api/attendance', 'PATCH', { ...own, reason: 'own edited' }, a);
+await request('/api/admin/members', 'GET', undefined, a, 401);
+await request('/api/admin/fines', 'POST', { attendanceId: own.id, unnotified: true }, a, 401);
+await request('/api/session', 'GET', undefined, admin).then(({ data }) => assert.equal(data.user?.role, 'admin'));
+await request('/api/admin/fines', 'POST', { attendanceId: own.id, unnotified: false }, admin, 400);
+await request('/api/admin/fines', 'POST', { attendanceId: own.id, unnotified: true }, admin, 201);
+let calendar = (await request('/api/attendance?month=2099-10', 'GET', undefined, a)).data.entries;
+assert.equal(calendar.find(e => e.id === own.id).unnotified, true);
+await request('/api/admin/fines', 'POST', { attendanceId: own.id, unnotified: true }, admin, 409);
+const users = (await request('/api/admin/members', 'GET', undefined, admin)).data.entries;
+assert.equal(users.length, 25);
+assert.ok(users.every(m => !('passwordHash' in m) && !('passwordSalt' in m)));
+const aMember = users.find(m => m.username === 'albert08');
+const incident = { id: crypto.randomUUID(), memberId: aMember.id, date: '2099-10-17', type: '임의결석', reason: 'QA direct', unnotified: true };
+await request('/api/admin/incidents', 'POST', incident, a, 401);
+await request('/api/admin/incidents', 'POST', incident, admin, 201);
+await request('/api/admin/incidents', 'POST', incident, admin, 409);
+await request('/api/attendance', 'PATCH', { id: incident.id, date: incident.date, type: incident.type, reason: 'tamper' }, a, 403);
+calendar = (await request('/api/attendance?month=2099-10', 'GET', undefined, a)).data.entries;
+assert.equal(calendar.find(e => e.id === incident.id).adminRecord, 1);
+assert.equal(calendar.find(e => e.id === incident.id).unnotified, true);
+const report = (await request('/api/fines?month=2099-10', 'GET', undefined, b)).data;
+assert.equal(report.entries.length, 2);
+assert.equal(report.summary.outstanding, 10000);
+await request('/api/admin/members', 'PATCH', { id: aMember.id, action: 'deactivate', revision: aMember.sessionVersion }, admin);
+await request('/api/attendance?month=2099-10', 'GET', undefined, a, 401);
+await request('/api/admin/members', 'PATCH', { id: aMember.id, action: 'activate', revision: aMember.sessionVersion }, admin, 409);
+await request('/api/admin/members', 'PATCH', { id: aMember.id, action: 'activate', revision: aMember.sessionVersion + 1 }, admin);
+await request('/api/session', 'POST', { username: 'albert08', password: 'QA-member-A-unique-2026' }, a);
+await request('/api/admin/members', 'PATCH', { id: aMember.id, action: 'reset', password: 'QA-reset-A-unique-2026', revision: aMember.sessionVersion + 2 }, admin);
+await request('/api/attendance?month=2099-10', 'GET', undefined, a, 401);
+await request('/api/session', 'POST', { username: 'albert08', password: 'QA-reset-A-unique-2026' }, a);
+assert.equal((await request('/api/session', 'GET', undefined, a)).data.user.mustChangePassword, true);
+await request('/api/fines', 'GET', undefined, a, 403);
+await request('/api/account', 'PATCH', { currentPassword: 'QA-reset-A-unique-2026', newPassword: 'QA-member-A-final-2026' }, a);
+await request('/api/attendance', 'DELETE', { id: own.id }, a, 401);
+await request('/api/session', 'DELETE', undefined, b);
+await request('/api/fines', 'GET', undefined, b, 401);
+console.log(`Member access integration checks passed: ${checks}; disposable QA database only.`);

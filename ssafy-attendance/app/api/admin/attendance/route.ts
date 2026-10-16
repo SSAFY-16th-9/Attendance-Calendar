@@ -1,10 +1,30 @@
 import { and, count, desc, eq, inArray, like, ne, sql } from "drizzle-orm";
 import { getDb } from "@/db";
-import { attendance } from "@/db/schema";
+import { attendance, members } from "@/db/schema";
 import { privateJson, requireAdmin } from "@/lib/admin-auth";
 import { canonicalName, nameAliases, TYPES, validateEntry } from "@/lib/attendance";
 
 export const dynamic = "force-dynamic";
+
+export async function POST(request: Request) {
+  const denied = await requireAdmin(request); if (denied) return denied;
+  let input: Record<string, unknown> | null;
+  try { input = await request.json() as typeof input; } catch { return privateJson({ error: "등록 내용을 확인해 주세요." }, 400); }
+  if (!input || typeof input.memberId !== "string") return privateJson({ error: "회원을 선택해 주세요." }, 400);
+  try {
+    const db = getDb();
+    const [member] = await db.select({ id: members.id, name: members.name }).from(members).where(eq(members.id, input.memberId)).limit(1);
+    if (!member) return privateJson({ error: "회원을 선택해 주세요." }, 400);
+    const valid = validateEntry({ ...input, name: member.name });
+    if (typeof valid === "string") return privateJson({ error: valid }, 400);
+    const entry = { ...valid, id: crypto.randomUUID(), createdAt: new Date().toISOString(), ownerId: member.id, adminRecord: 0 };
+    const duplicate = await db.select({ id: attendance.id }).from(attendance).where(and(eq(attendance.date, valid.date), inArray(attendance.name, nameAliases(valid.name)), eq(attendance.type, valid.type))).limit(1);
+    if (duplicate.length) return privateJson({ error: "같은 출결이 이미 등록되어 있어요." }, 409);
+    const rows = await db.insert(attendance).values(entry).onConflictDoNothing().returning();
+    if (!rows.length) return privateJson({ error: "같은 출결이 이미 등록되어 있어요." }, 409);
+    return privateJson({ entry: rows[0] }, 201);
+  } catch (error) { console.error("Admin attendance create failed", error); return privateJson({ error: "등록하지 못했어요." }, 503); }
+}
 
 export async function GET(request: Request) {
   const denied = await requireAdmin(request);
@@ -41,7 +61,9 @@ export async function PATCH(request: Request) {
     const db = getDb();
     const duplicate = await db.select({ id: attendance.id }).from(attendance).where(and(eq(attendance.date, valid.date), inArray(attendance.name, nameAliases(valid.name)), eq(attendance.type, valid.type), ne(attendance.id, input.id))).limit(1);
     if (duplicate.length) return privateJson({ error: "같은 날짜에 동일한 이름과 사유가 이미 등록되어 있어요." }, 409);
-    const entries = await db.update(attendance).set(valid).where(eq(attendance.id, input.id)).returning();
+    const [owner] = await db.select({ id: members.id }).from(members).where(eq(members.name, valid.name)).limit(1);
+    if (!owner) return privateJson({ error: "등록된 회원을 선택해 주세요." }, 400);
+    const entries = await db.update(attendance).set({ ...valid, ownerId: owner.id }).where(eq(attendance.id, input.id)).returning();
     if (!entries.length) return privateJson({ error: "이미 삭제된 내역이에요. 목록을 새로고침해 주세요." }, 404);
     return privateJson({ entry: entries[0] });
   } catch (error) {

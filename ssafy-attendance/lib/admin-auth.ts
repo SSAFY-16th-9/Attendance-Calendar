@@ -27,14 +27,18 @@ export async function isAdmin(request: Request) {
 }
 
 export async function requireAdmin(request: Request) {
-  if (!sameOrigin(request)) return privateJson({ error: "관리자 페이지에서 다시 시도해 주세요." }, 403);
-  if (!await isAdmin(request)) return privateJson({ error: "관리자 로그인이 필요해요." }, 401);
+  if (!sameOrigin(request) || !await isAdmin(request)) {
+    // Finish rejected request bodies before returning so local Worker streams
+    // cannot outlive their request and disrupt the next administrator request.
+    if (request.body && !request.bodyUsed) await request.text().catch(() => {});
+    return !sameOrigin(request) ? privateJson({ error: "관리자 페이지에서 다시 시도해 주세요." }, 403) : privateJson({ error: "관리자 로그인이 필요해요." }, 401);
+  }
   return null;
 }
 
-export async function consumeLoginAttempt(request: Request) {
+export async function consumeLoginAttempt(request: Request, scope = "admin") {
   const now = Math.floor(Date.now() / 1000);
-  const keyBytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(request.headers.get("cf-connecting-ip") || "local"));
+  const keyBytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${scope}:${request.headers.get("cf-connecting-ip") || "local"}`));
   const key = Array.from(new Uint8Array(keyBytes), byte => byte.toString(16).padStart(2, "0")).join("");
   const db = getDb();
   await db.delete(adminLoginAttempts).where(lt(adminLoginAttempts.windowStart, now - 900));

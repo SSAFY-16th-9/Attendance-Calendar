@@ -24,13 +24,13 @@ test('payment and reversal preserve the money invariant', () => {
   }
 });
 
-test('personal balances combine the corrected name and include all 24 classmates', () => {
+test('personal balances combine the corrected name and include all 25 classmates', () => {
   const people = summarizePeople([
     { name: '이주연', amount: 5000, status: 'paid' },
     { name: '이주언', amount: 5000, status: 'unpaid' },
     { name: '황규진', amount: 5000, status: 'waived' },
   ]);
-  assert.equal(people.length, 24);
+  assert.equal(people.length, 25);
   assert.equal(people[0].name, '이주언');
   assert.equal(people[0].assessed, 10000);
   assert.equal(people[0].collected, 5000);

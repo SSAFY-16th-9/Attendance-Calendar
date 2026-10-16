@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, Banknote, Check, ChevronLeft, ChevronRight, CircleCheck, Info, Layers2, LoaderCircle, Search, ShieldCheck, Wallet, X } from "lucide-react";
 import { emptySummary, Fine, FineCandidate, FineReport, FineStatus, FINE_AMOUNT, STATUS_LABELS, won } from "@/lib/fines";
-import { koreaToday } from "@/lib/attendance";
+import { koreaToday, MEMBERS } from "@/lib/attendance";
+import IncidentDialog from "./incident-dialog";
 
 const blankReport: FineReport = { entries: [], summary: { ...emptySummary }, people: [], total: 0, page: 1, pageSize: 50 };
 type Action = { mode: "assess"; entry: FineCandidate } | { mode: "status"; entry: Fine; status: FineStatus };
@@ -100,7 +101,7 @@ export default function FinesPage({ management = false }: { management?: boolean
   return <div className="admin-app fines-app">
     <header className="admin-topbar"><a href="/" className="brand"><span className="brand-symbol"><Layers2 size={24} /></span><span>출결 모아<span className="brand-caption">SSAFY 16기 9반</span></span></a><div className="fine-header-links"><a href="/" className="back-calendar"><ArrowLeft size={15} />캘린더</a><a href={management ? "/fines" : "/admin/fines"} className="back-calendar"><ShieldCheck size={15} />{management ? "공유 현황" : "관리자 관리"}</a></div></header>
     <main className="admin-main">
-      <section className="page-heading"><div><div className="eyebrow">{management ? <ShieldCheck size={13} /> : <Wallet size={13} />}{management ? " ADMIN WORKSPACE" : " OUR CLASS, TOGETHER"}</div><h1>{management ? "벌금 관리" : "우리 반 벌금 현황"}<span className="heading-dot">.</span></h1><p>{management ? "사전 공유 여부를 확인하고 벌금과 납부 상태를 관리하세요." : "부과 내역과 납부 여부를 투명하게 함께 확인해요."}</p></div><a className="secondary-button" href={management ? "/admin" : "/"}>{management ? "출결 관리" : "캘린더 보기"}</a></section>
+      <section className="page-heading"><div><div className="eyebrow">{management ? <ShieldCheck size={13} /> : <Wallet size={13} />}{management ? " ADMIN WORKSPACE" : " OUR CLASS, TOGETHER"}</div><h1>{management ? "벌금 관리" : "우리 반 벌금 현황"}<span className="heading-dot">.</span></h1><p>{management ? "사전 공유 여부를 확인하고 벌금과 납부 상태를 관리하세요." : "부과 내역과 납부 여부를 투명하게 함께 확인해요."}</p></div><div className="admin-heading-actions">{management && authenticated && <IncidentDialog onSaved={() => { load(); loadCandidates(); setNotice("무단 출결과 벌금 5,000원을 등록했어요."); }} />}<a className="secondary-button" href={management ? "/admin" : "/"}>{management ? "출결 관리" : "캘린더 보기"}</a></div></section>
       <div className="fine-policy"><Info size={19} /><div><strong>미리 알리지 않은 임의지각·임의결석 · 건당 {won(FINE_AMOUNT)}</strong><p>같은 출결 종류라도 사전에 알린 경우에는 벌금이 없습니다. 관리자가 미공유 여부를 확인해 부과한 내역만 집계합니다. 임의조퇴는 대상에서 제외합니다.</p></div></div>
       {management && authenticated === null ? <div className="admin-check"><LoaderCircle size={25} className="spin" /><p>관리자 권한을 확인하고 있어요.</p></div> : management && !canManage ? <section className="fine-login-needed"><ShieldCheck size={34} /><h2>관리자 로그인 후 관리할 수 있어요</h2><p>로그인을 마친 뒤 ‘벌금 관리’ 버튼을 눌러 돌아와 주세요.</p><a href="/admin" className="primary-button">관리자 로그인</a><a href="/fines" className="text-button">벌금 현황 보기</a></section> : null}
       {showData && <>

@@ -3,9 +3,11 @@ import { getDb } from "@/db";
 import { fines } from "@/db/schema";
 import { canonicalName } from "@/lib/attendance";
 import { Fine, FINE_STATUSES, summarizeFines, summarizePeople } from "@/lib/fines";
+import { requireActor } from "@/lib/site-auth";
 
 export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
+  const auth = await requireActor(request); if (auth.error) return auth.error;
   const params = new URL(request.url).searchParams;
   const month = params.get("month") || "";
   const name = (params.get("q") || "").trim();

@@ -1,9 +1,23 @@
 import handler from "vinext/server/fetch-handler";
 import { runWithConnectorBinding } from "../lib/connector-context";
 import type { ConnectorBinding } from "../lib/connector-contract.mjs";
+import { getActor } from "../lib/site-auth";
 
 export default {
-  fetch(request: Request, env: Cloudflare.Env, ctx: ExecutionContext<{ CONNECTORS?: ConnectorBinding }>) {
+  async fetch(request: Request, env: Cloudflare.Env, ctx: ExecutionContext<{ CONNECTORS?: ConnectorBinding }>) {
+    const url = new URL(request.url);
+    const publicPath = url.pathname === "/login" || url.pathname === "/api/session" || url.pathname === "/api/admin/session" || url.pathname === "/favicon.svg" || url.pathname.startsWith("/_next/") || url.pathname.startsWith("/@") || url.pathname.startsWith("/__vite");
+    if (!publicPath) {
+      const actor = await getActor(request);
+      if (!actor) {
+        if (url.pathname.startsWith("/api/")) return Response.json({ error: "로그인이 필요해요." }, { status: 401, headers: { "Cache-Control": "no-store" } });
+        return Response.redirect(new URL(`/login?next=${encodeURIComponent(url.pathname + url.search)}`, url), 303);
+      }
+      if (actor.mustChangePassword && url.pathname !== "/account" && url.pathname !== "/api/account") {
+        if (url.pathname.startsWith("/api/")) return Response.json({ error: "첫 로그인 비밀번호를 변경해 주세요.", passwordChangeRequired: true }, { status: 403, headers: { "Cache-Control": "no-store" } });
+        return Response.redirect(new URL("/account", url), 303);
+      }
+    }
     let binding = ctx.props?.CONNECTORS;
     // Local preview emulates the same request-scoped capability. This branch and
     // the auxiliary service binding are absent from production builds.
@@ -23,6 +37,13 @@ export default {
         },
       };
     }
-    return runWithConnectorBinding(binding, () => handler.fetch(request, env, ctx));
+    const response = await runWithConnectorBinding(binding, () => handler.fetch(request, env, ctx));
+    if (!publicPath) {
+      const protectedResponse = new Response(response.body, response);
+      protectedResponse.headers.set("Cache-Control", "private, no-store");
+      protectedResponse.headers.append("Vary", "Cookie");
+      return protectedResponse;
+    }
+    return response;
   },
 };
