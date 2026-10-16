@@ -4,6 +4,7 @@ import { attendance, fines } from "@/db/schema";
 import { DAILY_LIMIT_MESSAGE, canonicalName, nameAliases, validateEntry } from "@/lib/attendance";
 import { DELETE as adminDelete } from "@/app/api/admin/attendance/route";
 import { requireActor } from "@/lib/site-auth";
+import { syncFineWithAttendance } from "@/lib/fine-sync";
 
 export const dynamic = "force-dynamic";
 const json = (data: unknown, status = 200) => Response.json(data, { status, headers: { "Cache-Control": "no-store" } });
@@ -69,7 +70,7 @@ export async function PATCH(request: Request) {
     if (unnotified && valid.date !== existing.date) return json({ error: "무단 출결은 날짜를 바꿀 수 없어요. 사유와 상세 이유만 수정할 수 있어요." }, 403);
     const duplicate = await db.select({ id: attendance.id }).from(attendance).where(and(eq(attendance.date, valid.date), inArray(attendance.name, nameAliases(valid.name)), ne(attendance.id, input.id))).limit(1);
     if (duplicate.length) return json({ error: DAILY_LIMIT_MESSAGE }, 409);
-    const updated = await db.update(attendance).set({ ...valid, ownerId: auth.actor.id }).where(and(ownership, eq(attendance.date, existing.date))).returning();
+    const [updated] = await db.batch([db.update(attendance).set({ ...valid, ownerId: auth.actor.id }).where(and(ownership, eq(attendance.date, existing.date))).returning(), syncFineWithAttendance(db, input.id)]);
     if (!updated.length) return json({ error: "출결 상태가 바뀌었어요. 새로고침해 주세요." }, 409);
     return json({ entry: updated[0] });
   } catch (error) {

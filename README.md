@@ -54,7 +54,7 @@
 - 관리자: `/admin/fines` — 납부 상태 관리와 무단 출결 직접 추가. 기존 ‘사전 공유 여부 확인’ 목록과 `GET /api/admin/fines`는 삭제했습니다. 부과는 캘린더 상세 팝업이나 출결 등록 창에서 합니다.
 - 같은 출결에 중복 부과할 수 없습니다. 납부 완료·미납 변경·부과 취소·부과 복원을 관리자만 처리합니다.
 - 부과 취소는 합계에서 제외하며 기록은 남깁니다. 납부 변경 시 서버에서 확인 시각을 기록합니다. 동시 수정 충돌은 revision으로 차단합니다.
-- 출결을 수정해도 이미 부과한 벌금의 당시 정보와 납부 기록은 유지합니다. **출결을 삭제하면 해당 벌금도 함께 삭제됩니다**(2026-10-16 변경, `DELETE /api/admin/attendance`에서 한 batch로 처리). 출결 정정 시 벌금 취소 여부는 관리자가 별도 확인합니다.
+- 출결을 수정하면 벌금의 날짜·이름·사유도 같은 batch에서 출결과 맞춰집니다(`lib/fine-sync.ts`). 금액·납부 상태·납부 기록은 유지합니다. 이 변경 전에 수정된 벌금은 `ssafy-attendance/scripts/sync-fine-snapshots.sql`을 D1 Console에서 한 번 실행하면 맞춰집니다(재실행 안전, 선택). **출결을 삭제하면 해당 벌금도 함께 삭제됩니다**(2026-10-16 변경, `DELETE /api/admin/attendance`에서 한 batch로 처리). 출결 정정 시 벌금 취소 여부는 관리자가 별도 확인합니다.
 - 벌금 페이지는 1분마다, 창으로 돌아올 때 새로 조회합니다. 기간·이름 필터는 요약과 개인별 현황에도 적용되고, 상태 필터는 내역 목록에만 적용됩니다.
 - API: `GET /api/fines` 회원 조회, `POST/PATCH /api/admin/fines` 관리자 전용. POST는 `unnotified: true` 확인 필수이며 금액은 서버에서 5,000원으로 고정합니다. 출결 상세 이유는 벌금 API에 포함하지 않습니다.
 - 구현: `components/fines-page.tsx`, `lib/fines.ts`, `app/api/fines/route.ts`, `app/api/admin/fines/route.ts`, `db/schema.ts`의 `fines` 테이블

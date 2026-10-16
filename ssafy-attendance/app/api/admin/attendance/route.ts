@@ -2,6 +2,7 @@ import { and, count, desc, eq, inArray, like, ne, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { attendance, fines, members } from "@/db/schema";
 import { privateJson, requireAdmin } from "@/lib/admin-auth";
+import { syncFineWithAttendance } from "@/lib/fine-sync";
 import { DAILY_LIMIT_MESSAGE, canonicalName, nameAliases, TYPES, validateEntry } from "@/lib/attendance";
 
 export const dynamic = "force-dynamic";
@@ -63,7 +64,7 @@ export async function PATCH(request: Request) {
     if (duplicate.length) return privateJson({ error: DAILY_LIMIT_MESSAGE }, 409);
     const [owner] = await db.select({ id: members.id }).from(members).where(eq(members.name, valid.name)).limit(1);
     if (!owner) return privateJson({ error: "등록된 회원을 선택해 주세요." }, 400);
-    const entries = await db.update(attendance).set({ ...valid, ownerId: owner.id }).where(eq(attendance.id, input.id)).returning();
+    const [entries] = await db.batch([db.update(attendance).set({ ...valid, ownerId: owner.id }).where(eq(attendance.id, input.id)).returning(), syncFineWithAttendance(db, input.id)]);
     if (!entries.length) return privateJson({ error: "이미 삭제된 내역이에요. 목록을 새로고침해 주세요." }, 404);
     return privateJson({ entry: entries[0] });
   } catch (error) {
