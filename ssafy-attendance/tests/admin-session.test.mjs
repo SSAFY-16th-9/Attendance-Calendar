@@ -31,3 +31,14 @@ test('tampered or malformed session tokens never grant access', async () => {
   }
   assert.notEqual(await createSession('test-admin', secret, 1000), token);
 });
+
+test('auto-login sessions last their chosen length and still expire', async () => {
+  const { MEMBER_REMEMBER_SECONDS, ADMIN_REMEMBER_SECONDS } = await import('../lib/admin-session.ts');
+  const secret = 'x'.repeat(40);
+  for (const seconds of [MEMBER_REMEMBER_SECONDS, ADMIN_REMEMBER_SECONDS]) {
+    const token = await createSession('member:remember', secret, 1000, seconds);
+    assert.equal(await verifySession(token, 'member:remember', secret, 1000 + seconds - 1), true);
+    assert.equal(await verifySession(token, 'member:remember', secret, 1000 + seconds), false);
+  }
+  assert.equal(await verifySession(await createSession('member:remember', secret, 1000, 12345), 'member:remember', secret, 1001), false);
+});

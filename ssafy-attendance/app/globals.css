@@ -32,3 +32,5 @@
 .calendar-event{min-width:0;max-width:100%}.event-name{flex-shrink:0}.event-type{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .more-events{display:block;font-size:10px;font-weight:600;color:#3f6f58;background:#eef5ef;border-radius:3px;padding:2px 5px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}@media(max-width:700px){.more-events{font-size:9px;padding:2px 3px}}
 .sidebar-note strong,.sidebar-note p{position:relative;z-index:1;word-break:keep-all;overflow-wrap:break-word}.sidebar-note p{padding-right:18px}.sidebar-note:after{width:60px;height:60px;bottom:-34px;right:-26px;border-width:12px}
+.detail-login-link{color:#2f6e55;font-weight:600;text-decoration:underline;margin-left:4px}
+.remember-login{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:4px 0 14px;font-size:12px;color:#5f7a62;cursor:pointer}.remember-login input{width:15px;height:15px;accent-color:#247b5e}.remember-login span{flex-basis:100%;font-size:10px;color:#a0a99b;padding-left:21px}.login-calendar-link{display:inline-block;margin-top:14px}

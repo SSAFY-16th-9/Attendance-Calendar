@@ -1,5 +1,9 @@
 const encoder = new TextEncoder();
 export const SESSION_SECONDS = 8 * 60 * 60;
+// "자동 로그인" lengths. Admin sessions cannot be revoked one by one, so they stay shorter.
+export const MEMBER_REMEMBER_SECONDS = 30 * 24 * 60 * 60;
+export const ADMIN_REMEMBER_SECONDS = 7 * 24 * 60 * 60;
+const SESSION_LENGTHS = [SESSION_SECONDS, ADMIN_REMEMBER_SECONDS, MEMBER_REMEMBER_SECONDS];
 export const PASSWORD_ITERATIONS = 100_000;
 
 export function constantTimeEqual(left: string, right: string) {
@@ -22,8 +26,8 @@ async function signature(value: string, secret: string) {
   return Array.from(new Uint8Array(result), byte => byte.toString(16).padStart(2, "0")).join("");
 }
 
-export async function createSession(username: string, secret: string, now = Math.floor(Date.now() / 1000)) {
-  const payload = btoa(JSON.stringify({ username, issued: now, expires: now + SESSION_SECONDS, nonce: crypto.randomUUID() })).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
+export async function createSession(username: string, secret: string, now = Math.floor(Date.now() / 1000), seconds = SESSION_SECONDS) {
+  const payload = btoa(JSON.stringify({ username, issued: now, expires: now + seconds, nonce: crypto.randomUUID() })).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
   return `${payload}.${await signature(payload, secret)}`;
 }
 
@@ -34,6 +38,6 @@ export async function verifySession(token: string, username: string, secret: str
   if (!constantTimeEqual(parts[1], await signature(parts[0], secret))) return false;
   try {
     const payload = JSON.parse(atob(parts[0].replaceAll("-", "+").replaceAll("_", "/"))) as { username?: unknown; expires?: unknown; issued?: unknown };
-    return payload.username === username && typeof payload.expires === "number" && typeof payload.issued === "number" && payload.expires > now && payload.issued <= now && payload.expires - payload.issued === SESSION_SECONDS;
+    return payload.username === username && typeof payload.expires === "number" && typeof payload.issued === "number" && payload.expires > now && payload.issued <= now && SESSION_LENGTHS.includes(payload.expires - payload.issued);
   } catch { return false; }
 }

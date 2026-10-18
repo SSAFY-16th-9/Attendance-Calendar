@@ -13,7 +13,7 @@ const typeClass = (type: string) => `type-${TYPES.indexOf(type as AttendanceType
 const formatDate = (date: string) => new Date(`${date}T12:00:00+09:00`).toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric", timeZone: "Asia/Seoul" });
 
 export default function Home() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   async function logout() { const r = await fetch("/api/session", { method: "DELETE" }); if (r.ok) location.assign("/login"); else setToast("로그아웃하지 못했어요."); }
   const [today, setToday] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
@@ -99,7 +99,7 @@ export default function Home() {
   const [registration, setRegistration] = useState<{ date: string; entry?: AttendanceEntry } | null>(null);
   const findExisting = useCallback((date: string, name: string) => entries.find(entry => entry.date === date && canonicalName(entry.name) === canonicalName(name)), [entries]);
   // Members who already have a record that day go straight to editing it.
-  const register = (date = selectedDate || today) => { const mine = user?.role === "member" ? findExisting(date, user.name) : undefined; setRegistration(mine ? { date, entry: mine } : { date }); };
+  const register = (date = selectedDate || today) => { if (!user) { location.assign("/login?next=%2F"); return; } const mine = user?.role === "member" ? findExisting(date, user.name) : undefined; setRegistration(mine ? { date, entry: mine } : { date }); };
   const closeDetail = useCallback(() => setDetailName(null), []);
 
   return <div className="app-shell">
@@ -112,7 +112,7 @@ export default function Home() {
       <div className="sidebar-bottom">{user?.role === "admin" && <a className="nav-item admin-nav" href="/admin"><ShieldCheck size={18} /><span>관리자 페이지</span><ChevronRight size={15} /></a>}<button className="nav-item" onClick={() => setInfoDialog("guide")}><CircleHelp size={18} /><span>이용 가이드</span><ArrowRight size={15} /></button><div className="sidebar-footer"><span className="footer-dot" /> SSAFY 16TH <span>CLASS 09</span></div></div>
     </aside>
     <div className="workspace">
-      <header className="topbar"><div className="breadcrumb"><span>우리 반 공간</span><ChevronRight size={14} /><strong>출결 캘린더</strong></div><div className="topbar-right"><span className={`sync-state ${error ? "offline" : ""}`}><i />{error ? "연결 확인 필요" : loading ? "불러오는 중" : "함께 공유 중"}</span><span className="topbar-divider" /><a className="account-link" href={user?.role === "admin" ? "/admin/members" : "/account"}>{user?.name || "회원정보"}</a><button className="session-logout" onClick={logout}>로그아웃</button></div></header>
+      <header className="topbar"><div className="breadcrumb"><span>우리 반 공간</span><ChevronRight size={14} /><strong>출결 캘린더</strong></div><div className="topbar-right"><span className={`sync-state ${error ? "offline" : ""}`}><i />{error ? "연결 확인 필요" : loading ? "불러오는 중" : "함께 공유 중"}</span><span className="topbar-divider" />{user ? <><a className="account-link" href={user.role === "admin" ? "/admin/members" : "/account"}>{user.name}</a><button className="session-logout" onClick={logout}>로그아웃</button></> : !authLoading && <a className="account-link" href="/login?next=%2F">로그인</a>}</div></header>
       <main className="main-content">
         <section className="page-heading"><div><div className="eyebrow"><span /> OUR CLASS, OUR DAYS</div><h1>우리 반 출결 캘린더<span className="heading-dot">.</span></h1><p>함께 확인하고, 미리 공유하는 우리 반의 하루</p></div></section>
         <section className="stats" aria-label="이번 달 출결 요약"><div className="stat-card"><span className="stat-icon mint"><CalendarDays size={21} /></span><div><p>이번 달 출결 내역</p><strong>{loading ? "—" : entries.length}<small>건</small></strong></div><span className="stat-caption">{month.month + 1}월 기준</span></div><div className="stat-card"><span className="stat-icon peach"><Users size={21} /></span><div><p>이번 달 등록 인원</p><strong>{loading ? "—" : new Set(entries.map(entry => entry.name)).size}<small>명</small></strong></div><span className="stat-caption">중복 제외</span></div><div className="stat-card"><span className="stat-icon lavender"><Sparkles size={21} /></span><div><p>함께하는 우리 반</p><strong>{MEMBERS.length}<small>명</small></strong></div><span className="stat-caption class-label">16기 · 9반</span></div></section>
@@ -133,7 +133,7 @@ export default function Home() {
               const items = dayEntries.filter(entry => entry.name === name);
               return <div className="person-card" key={name}><button className="person-toggle" aria-haspopup="dialog" onClick={() => setDetailName(name)}><span className={`person-avatar avatar-${index % 4}`}>{name.slice(1)}</span><strong>{name}</strong><span className={`type-badge ${items[0].unnotified ? "unnotified" : typeClass(items[0].type)}`}>{items[0].unnotified ? "무단 · " : ""}{items[0].type}{items.length > 1 && ` +${items.length - 1}`}</span><ChevronRight size={15} className="person-chevron" /></button></div>;
             }) : <div className="panel-empty"><div className="empty-calendar"><CalendarDays size={35} strokeWidth={1.35} /><span><Check size={12} strokeWidth={3} /></span></div><strong>{filtered ? "검색된 출결이 없어요" : "아직 등록된 출결이 없어요"}</strong><p>{filtered ? <>이름이나 사유 필터를 바꾸어<br />다시 확인해 보세요.</> : <>예정된 지각, 조퇴, 결석이 있다면<br />우리 반에 미리 알려주세요.</>}</p>{filtered && <button className="text-button" onClick={() => { setFilter("all"); setSearch(""); }}>필터 초기화</button>}</div>}</div>
-            <button className="day-register" onClick={() => register()}><Plus size={16} />이 날짜에 출결 등록</button><div className="detail-tip"><span><Info size={15} /></span><p>이름을 누르면 상세 이유를 볼 수 있어요.<br /><b>상세 이유 작성은 선택 사항이에요.</b></p></div>
+            <button className="day-register" onClick={() => register()}><Plus size={16} />{user || authLoading ? "이 날짜에 출결 등록" : "로그인하고 출결 등록"}</button><div className="detail-tip"><span><Info size={15} /></span><p>이름을 누르면 상세 이유를 볼 수 있어요.<br /><b>상세 이유 작성은 선택 사항이에요.</b></p></div>
           </aside>}
         </div>
         <footer className="main-footer"><span><Layers2 size={14} />출결 모아 <i />서로를 위한 작은 공유</span><span>Made for SSAFY 16기 9반 <span className="footer-heart">♡</span></span></footer>

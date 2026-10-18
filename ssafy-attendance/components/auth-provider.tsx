@@ -11,7 +11,8 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
       if (!response.ok) throw Error();
       const result = await response.json() as { user: CurrentUser | null };
       setUser(result.user);
-      if (!result.user && location.pathname !== "/login") location.replace(`/login?next=${encodeURIComponent(location.pathname)}`);
+      // The calendar is public; other pages send logged-out visitors to the login page.
+      if (!result.user && !["/login", "/"].includes(location.pathname)) location.replace(`/login?next=${encodeURIComponent(location.pathname)}`);
       else if (result.user?.mustChangePassword && !["/account", "/login"].includes(location.pathname)) location.replace("/account");
     }).catch(() => {}).finally(() => setLoading(false));
   }, []);

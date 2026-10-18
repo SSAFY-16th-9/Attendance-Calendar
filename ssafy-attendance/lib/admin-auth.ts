@@ -15,8 +15,8 @@ export const privateJson = (data: unknown, status = 200, extraHeaders: Record<st
 export const sameOrigin = (request: Request) => !request.headers.get("origin") || request.headers.get("origin") === new URL(request.url).origin;
 const cookieName = (request: Request) => new URL(request.url).protocol === "https:" ? "__Host-ssafy_admin" : "ssafy_admin_local";
 
-export function sessionCookie(request: Request, token: string) {
-  return `${cookieName(request)}=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${token ? SESSION_SECONDS : 0}${new URL(request.url).protocol === "https:" ? "; Secure" : ""}`;
+export function sessionCookie(request: Request, token: string, seconds = SESSION_SECONDS) {
+  return `${cookieName(request)}=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${token ? seconds : 0}${new URL(request.url).protocol === "https:" ? "; Secure" : ""}`;
 }
 
 export async function isAdmin(request: Request) {

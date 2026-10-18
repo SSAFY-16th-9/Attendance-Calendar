@@ -3,7 +3,7 @@ import { getDb } from "@/db";
 import { attendance, fines } from "@/db/schema";
 import { DAILY_LIMIT_MESSAGE, canonicalName, nameAliases, validateEntry } from "@/lib/attendance";
 import { DELETE as adminDelete } from "@/app/api/admin/attendance/route";
-import { requireActor } from "@/lib/site-auth";
+import { getActor, requireActor } from "@/lib/site-auth";
 import { syncFineWithAttendance } from "@/lib/fine-sync";
 
 export const dynamic = "force-dynamic";
@@ -15,12 +15,15 @@ function isSameOrigin(request: Request) {
 }
 
 export async function GET(request: Request) {
-  const auth = await requireActor(request); if (auth.error) return auth.error;
+  const actor = await getActor(request);
+  if (actor?.mustChangePassword) return json({ error: "첫 로그인 비밀번호를 변경해 주세요.", passwordChangeRequired: true }, 403);
   const month = new URL(request.url).searchParams.get("month");
   if (!month || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return json({ error: "조회할 달을 확인해 주세요." }, 400);
   try {
     const entries = await getDb().select({ attendance, fineId: fines.id, fineStatus: fines.status }).from(attendance).leftJoin(fines, eq(attendance.id, fines.attendanceId)).where(like(attendance.date, `${month}-%`)).orderBy(attendance.date, attendance.name, attendance.type);
-    return json({ entries: entries.map(row => ({ ...row.attendance, name: canonicalName(row.attendance.name), fineId: row.fineId, fineStatus: row.fineStatus, unnotified: row.attendance.adminRecord === 1 || !!row.fineId && row.fineStatus !== "waived" })) });
+    const shaped = entries.map(row => ({ ...row.attendance, name: canonicalName(row.attendance.name), fineId: row.fineId, fineStatus: row.fineStatus, unnotified: row.attendance.adminRecord === 1 || !!row.fineId && row.fineStatus !== "waived" }));
+    // Logged-out viewers see who and what kind only; reasons, fines and owners need a login.
+    return json({ entries: actor ? shaped : shaped.map(({ id, date, name, type, createdAt, unnotified }) => ({ id, date, name, type, createdAt, reason: "", unnotified, hidden: true })) });
   } catch (error) {
     console.error("Attendance read failed", error);
     return json({ error: "출결 정보를 불러오지 못했어요. 잠시 후 다시 시도해 주세요." }, 503);

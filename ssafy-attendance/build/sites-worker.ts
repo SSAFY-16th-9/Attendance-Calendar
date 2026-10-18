@@ -7,13 +7,15 @@ export default {
   async fetch(request: Request, env: Cloudflare.Env, ctx: ExecutionContext<{ CONNECTORS?: ConnectorBinding }>) {
     const url = new URL(request.url);
     const publicPath = url.pathname === "/login" || url.pathname === "/api/session" || url.pathname === "/api/admin/session" || url.pathname === "/favicon.svg" || url.pathname.startsWith("/_next/") || url.pathname.startsWith("/@") || url.pathname.startsWith("/__vite");
+    // Anyone may view the calendar; adding, editing and the other pages still need a login.
+    const publicRead = request.method === "GET" && (url.pathname === "/" || url.pathname === "/api/attendance");
     if (!publicPath) {
       const actor = await getActor(request);
-      if (!actor) {
+      if (!actor && !publicRead) {
         if (url.pathname.startsWith("/api/")) return Response.json({ error: "로그인이 필요해요." }, { status: 401, headers: { "Cache-Control": "no-store" } });
         return Response.redirect(new URL(`/login?next=${encodeURIComponent(url.pathname + url.search)}`, url), 303);
       }
-      if (actor.mustChangePassword && url.pathname !== "/account" && url.pathname !== "/api/account") {
+      if (actor?.mustChangePassword && url.pathname !== "/account" && url.pathname !== "/api/account") {
         if (url.pathname.startsWith("/api/")) return Response.json({ error: "첫 로그인 비밀번호를 변경해 주세요.", passwordChangeRequired: true }, { status: 403, headers: { "Cache-Control": "no-store" } });
         return Response.redirect(new URL("/account", url), 303);
       }

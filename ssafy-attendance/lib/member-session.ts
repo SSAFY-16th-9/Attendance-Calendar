@@ -7,8 +7,8 @@ import { createSession, verifySession, SESSION_SECONDS } from "./admin-session";
 export type MemberIdentity = { id: string; username: string; name: string; role: "member"; mustChangePassword: boolean; sessionVersion: number };
 export function memberSecret() { return (env as unknown as Record<string, string | undefined>).ADMIN_SESSION_SECRET || ""; }
 const name = (request: Request) => new URL(request.url).protocol === "https:" ? "__Host-ssafy_member" : "ssafy_member_local";
-export function memberCookie(request: Request, token: string) { return `${name(request)}=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${token ? SESSION_SECONDS : 0}${new URL(request.url).protocol === "https:" ? "; Secure" : ""}`; }
-export async function memberToken(member: { id: string; sessionVersion: number }) { return createSession(`member:${member.id}:${member.sessionVersion}`, memberSecret()); }
+export function memberCookie(request: Request, token: string, seconds = SESSION_SECONDS) { return `${name(request)}=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${token ? seconds : 0}${new URL(request.url).protocol === "https:" ? "; Secure" : ""}`; }
+export async function memberToken(member: { id: string; sessionVersion: number }, seconds = SESSION_SECONDS) { return createSession(`member:${member.id}:${member.sessionVersion}`, memberSecret(), undefined, seconds); }
 export async function getMember(request: Request): Promise<MemberIdentity | null> {
   const secret = memberSecret();
   if (secret.length < 32) return null;

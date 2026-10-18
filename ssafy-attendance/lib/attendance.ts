@@ -7,7 +7,7 @@ export const MEMBERS = [
 
 export const TYPES = ["공가", "사유지각", "사유조퇴", "사유결석", "임의지각", "임의조퇴", "임의결석"] as const;
 export type AttendanceType = typeof TYPES[number];
-export type AttendanceEntry = { id: string; date: string; name: string; type: AttendanceType; reason: string; createdAt: string; ownerId?: string | null; adminRecord?: number; unnotified?: boolean; fineId?: string | null; fineStatus?: string | null };
+export type AttendanceEntry = { id: string; date: string; name: string; type: AttendanceType; reason: string; createdAt: string; ownerId?: string | null; adminRecord?: number; unnotified?: boolean; fineId?: string | null; fineStatus?: string | null; hidden?: boolean };
 
 // A person can have at most one attendance record per day; later changes go through editing.
 export const DAILY_LIMIT_MESSAGE = "이 날짜에는 이미 등록된 출결이 있어요. 한 날짜에 1명당 1건만 등록할 수 있으니 기존 출결을 수정해 주세요.";
