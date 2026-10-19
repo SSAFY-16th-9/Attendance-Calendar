@@ -13,6 +13,28 @@ export type AttendanceEntry = { id: string; date: string; name: string; type: At
 // Label prefix shared by the calendar, day list and popup.
 export const statusPrefix = (entry: { unnotified?: boolean; pending?: number }) => entry.unnotified ? "무단 · " : entry.pending ? "미정 · " : "";
 export const PENDING_FINE_MESSAGE = "미정 출결에는 벌금을 부과할 수 없어요. 확정된 뒤 부과해 주세요.";
+// New records may cover several dates at once (same type and reason). Records saved
+// together share created_at and owner, which is how edits find "함께 등록한" records.
+export const MAX_DATES = 31;
+export function requestedDates(input: Record<string, unknown>): string[] | string {
+  if (input.dates == null) return typeof input.date === "string" ? [input.date] : "날짜를 선택해 주세요.";
+  if (!Array.isArray(input.dates) || !input.dates.length || input.dates.some(date => typeof date !== "string")) return "날짜를 선택해 주세요.";
+  const dates = [...new Set(input.dates as string[])].sort();
+  return dates.length > MAX_DATES ? `날짜는 한 번에 ${MAX_DATES}개까지 선택할 수 있어요.` : dates;
+}
+export function validateEntries(input: Record<string, unknown>, name: string) {
+  const dates = requestedDates(input);
+  if (typeof dates === "string") return dates;
+  const entries = [];
+  for (const date of dates) {
+    const valid = validateEntry({ ...input, date, name });
+    if (typeof valid === "string") return valid;
+    entries.push(valid);
+  }
+  return entries;
+}
+export const shortDate = (date: string) => `${Number(date.slice(5, 7))}/${Number(date.slice(8, 10))}`;
+export const takenDatesMessage = (dates: string[]) => dates.length > 1 ? `${dates.map(shortDate).join(", ")}에는 이미 등록된 출결이 있어요. 한 날짜에 1명당 1건만 등록할 수 있어요.` : DAILY_LIMIT_MESSAGE;
 export const DAILY_LIMIT_MESSAGE = "이 날짜에는 이미 등록된 출결이 있어요. 한 날짜에 1명당 1건만 등록할 수 있으니 기존 출결을 수정해 주세요.";
 
 // Day lists show the viewer's own record first, then 조퇴 → 지각 → 결석 → 공가.

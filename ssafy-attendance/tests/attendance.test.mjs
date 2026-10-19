@@ -70,3 +70,17 @@ test('pending is an optional boolean and drives the label prefix', async () => {
   assert.equal(statusPrefix({ unnotified: true, pending: 1 }), '무단 · ');
   assert.equal(statusPrefix({}), '');
 });
+
+test('several dates register together and stay within the limit', async () => {
+  const { requestedDates, validateEntries, takenDatesMessage, MAX_DATES, DAILY_LIMIT_MESSAGE } = await import('../lib/attendance.ts');
+  assert.deepEqual(requestedDates({ date: '2026-10-16' }), ['2026-10-16']);
+  assert.deepEqual(requestedDates({ dates: ['2026-10-23', '2026-10-21', '2026-10-23'] }), ['2026-10-21', '2026-10-23']);
+  assert.equal(typeof requestedDates({ dates: [] }), 'string');
+  assert.equal(typeof requestedDates({ dates: Array.from({ length: MAX_DATES + 1 }, (_, i) => `2026-01-${String(i + 1).padStart(2, '0')}`) }), 'string');
+  const entries = validateEntries({ dates: ['2026-10-21', '2026-10-22'], type: '사유결석', reason: '병원' }, '이주언');
+  assert.deepEqual(entries.map(e => e.date), ['2026-10-21', '2026-10-22']);
+  assert.ok(entries.every(e => e.type === '사유결석' && e.reason === '병원' && e.name === '이주언'));
+  assert.equal(typeof validateEntries({ dates: ['2026-10-21', '2026-02-30'], type: '공가' }, '이주언'), 'string');
+  assert.equal(takenDatesMessage(['2026-10-21']), DAILY_LIMIT_MESSAGE);
+  assert.match(takenDatesMessage(['2026-10-21', '2026-10-22']), /^10\/21, 10\/22에는/);
+});
