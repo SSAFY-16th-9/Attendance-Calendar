@@ -29,6 +29,13 @@
       "when": 1792138204001,
       "tag": "0003_normal_sleeper",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1792373566178,
+      "tag": "0004_add_pending",
+      "breakpoints": true
     }
   ]
 }

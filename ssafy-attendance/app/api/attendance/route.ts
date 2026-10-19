@@ -23,7 +23,7 @@ export async function GET(request: Request) {
     const entries = await getDb().select({ attendance, fineId: fines.id, fineStatus: fines.status }).from(attendance).leftJoin(fines, eq(attendance.id, fines.attendanceId)).where(like(attendance.date, `${month}-%`)).orderBy(attendance.date, attendance.name, attendance.type);
     const shaped = entries.map(row => ({ ...row.attendance, name: canonicalName(row.attendance.name), fineId: row.fineId, fineStatus: row.fineStatus, unnotified: row.attendance.adminRecord === 1 || !!row.fineId && row.fineStatus !== "waived" }));
     // Logged-out viewers see who and what kind only; reasons, fines and owners need a login.
-    return json({ entries: actor ? shaped : shaped.map(({ id, date, name, type, createdAt, unnotified }) => ({ id, date, name, type, createdAt, reason: "", unnotified, hidden: true })) });
+    return json({ entries: actor ? shaped : shaped.map(({ id, date, name, type, createdAt, pending, unnotified }) => ({ id, date, name, type, createdAt, pending, reason: "", unnotified, hidden: true })) });
   } catch (error) {
     console.error("Attendance read failed", error);
     return json({ error: "출결 정보를 불러오지 못했어요. 잠시 후 다시 시도해 주세요." }, 503);
@@ -70,10 +70,12 @@ export async function PATCH(request: Request) {
     if (!existing) return json({ error: "본인의 출결만 수정할 수 있어요." }, 403);
     // Members may change the type and reason of a 무단 record, but not its date; the 무단 mark and fine stay.
     const unnotified = existing.adminRecord === 1 || (!!existing.fineStatus && existing.fineStatus !== "waived");
+    const { pending, ...fields } = valid;
+    if (unnotified && valid.pending) return json({ error: "무단 출결은 미정으로 바꿀 수 없어요." }, 403);
     if (unnotified && valid.date !== existing.date) return json({ error: "무단 출결은 날짜를 바꿀 수 없어요. 사유와 상세 이유만 수정할 수 있어요." }, 403);
     const duplicate = await db.select({ id: attendance.id }).from(attendance).where(and(eq(attendance.date, valid.date), inArray(attendance.name, nameAliases(valid.name)), ne(attendance.id, input.id))).limit(1);
     if (duplicate.length) return json({ error: DAILY_LIMIT_MESSAGE }, 409);
-    const [updated] = await db.batch([db.update(attendance).set({ ...valid, ownerId: auth.actor.id }).where(and(ownership, eq(attendance.date, existing.date))).returning(), syncFineWithAttendance(db, input.id)]);
+    const [updated] = await db.batch([db.update(attendance).set({ ...fields, ...(input.pending === undefined ? {} : { pending }), ownerId: auth.actor.id }).where(and(ownership, eq(attendance.date, existing.date))).returning(), syncFineWithAttendance(db, input.id)]);
     if (!updated.length) return json({ error: "출결 상태가 바뀌었어요. 새로고침해 주세요." }, 409);
     return json({ entry: updated[0] });
   } catch (error) {

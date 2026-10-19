@@ -1,0 +1,1 @@
+ALTER TABLE `attendance` ADD `pending` integer DEFAULT 0 NOT NULL;

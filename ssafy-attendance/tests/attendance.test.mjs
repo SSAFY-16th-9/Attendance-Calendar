@@ -23,7 +23,7 @@ test('old attendance names display the corrected name without losing records', (
 
 test('all seven requested reasons are accepted without optional details', () => {
   assert.deepEqual(TYPES, ['공가', '사유지각', '사유조퇴', '사유결석', '임의지각', '임의조퇴', '임의결석']);
-  for (const type of TYPES) assert.deepEqual(validateEntry({ ...valid, type }), { ...valid, type, reason: '' });
+  for (const type of TYPES) assert.deepEqual(validateEntry({ ...valid, type }), { ...valid, type, reason: '', pending: 0 });
 });
 
 test('name must be a roster selection and reason must be supported', () => {
@@ -59,4 +59,14 @@ test('day lists put the viewer first, then group early leave, tardiness, absence
   ];
   assert.deepEqual(sortForViewer(entries, '이주언').map(e => e.name), ['이주연', '박은빈', '김세진', '김별찬', '고태호', '강유빈']);
   assert.deepEqual(sortForViewer(entries).map(e => e.type), ['사유조퇴', '사유지각', '임의지각', '사유결석', '공가', '공가']);
+});
+
+test('pending is an optional boolean and drives the label prefix', async () => {
+  const { statusPrefix } = await import('../lib/attendance.ts');
+  assert.equal(validateEntry({ ...valid, pending: true }).pending, 1);
+  assert.equal(validateEntry({ ...valid, pending: false }).pending, 0);
+  assert.equal(typeof validateEntry({ ...valid, pending: 'yes' }), 'string');
+  assert.equal(statusPrefix({ pending: 1 }), '미정 · ');
+  assert.equal(statusPrefix({ unnotified: true, pending: 1 }), '무단 · ');
+  assert.equal(statusPrefix({}), '');
 });

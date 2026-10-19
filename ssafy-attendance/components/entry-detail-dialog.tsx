@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { Clock3, Info, LoaderCircle, Pencil, Trash2, X } from "lucide-react";
-import { AttendanceEntry, AttendanceType, TYPES } from "@/lib/attendance";
+import { AttendanceEntry, AttendanceType, statusPrefix, TYPES } from "@/lib/attendance";
 import { useAuth } from "./auth-provider";
 import InlineFineAction from "./inline-fine-action";
 const typeClass = (type: string) => `type-${TYPES.indexOf(type as AttendanceType)}`;
@@ -22,7 +22,7 @@ export default function EntryDetailDialog({ name, entries, onClose, onEdit, onCh
   return <dialog ref={dialog} className="modal entry-detail-modal" aria-labelledby="entry-detail-title" onCancel={e => { if (busy) e.preventDefault(); else onClose(); }} onClick={e => { if (e.target === e.currentTarget && !busy) { const r = e.currentTarget.getBoundingClientRect(); if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) onClose(); } }}>
     <div className="modal-header"><div className="entry-detail-heading"><span className="person-avatar avatar-0">{name?.slice(1)}</span><div><h2 id="entry-detail-title">{name}</h2><span>{entries[0] && formatDate(entries[0].date)} · 출결 {entries.length}건</span></div></div><button className="icon-button" type="button" disabled={busy} onClick={onClose} aria-label="출결 상세 닫기"><X size={21} /></button></div>
     <div className="entry-detail-list">{entries.map(entry => <div className="entry-detail" key={entry.id}>
-      <div className="entry-type-line"><span className={`type-badge ${entry.unnotified ? "unnotified" : typeClass(entry.type)}`}>{entry.unnotified ? "무단 · " : ""}{entry.type}</span><span>출결 사유</span></div>
+      <div className="entry-type-line"><span className={`type-badge ${entry.unnotified ? "unnotified" : typeClass(entry.type)}${!entry.unnotified && entry.pending ? " pending" : ""}`}>{statusPrefix(entry)}{entry.type}</span><span>출결 사유</span></div>
       <label>상세 이유</label><p className={!entry.reason ? "no-reason" : ""}>{entry.hidden ? <>로그인하면 상세 이유를 볼 수 있어요. <a className="detail-login-link" href="/login?next=%2F">로그인</a></> : entry.reason || "작성된 상세 이유가 없어요."}</p>
       <div className="entry-footer"><span><Clock3 size={12} />{new Date(entry.createdAt).toLocaleDateString("ko-KR", { month: "long", day: "numeric", timeZone: "Asia/Seoul" })} 등록</span>{(canEdit(entry) || canDelete) && <div className="entry-actions">{canEdit(entry) && <button className="secondary-button" type="button" disabled={busy} onClick={() => onEdit(entry)}><Pencil size={13} />수정</button>}{canDelete && <button className="secondary-button entry-delete" type="button" disabled={busy} onClick={() => { setError(""); setConfirming(entry.id); }}><Trash2 size={13} />삭제</button>}</div>}</div>
       {confirming === entry.id && <div className="entry-delete-confirm" role="alert"><p>이 출결을 삭제할까요? 삭제 후에는 되돌릴 수 없어요.{entry.fineId ? " 부과된 벌금도 함께 삭제됩니다." : ""}</p><div><button className="secondary-button" type="button" disabled={busy} onClick={() => setConfirming(null)}>취소</button><button className="primary-button danger-button" type="button" disabled={busy} onClick={() => remove(entry)}>{busy ? <LoaderCircle size={14} className="spin" /> : <Trash2 size={14} />}{busy ? "삭제 중…" : "삭제하기"}</button></div></div>}

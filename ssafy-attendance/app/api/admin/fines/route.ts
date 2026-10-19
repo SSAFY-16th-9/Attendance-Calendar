@@ -1,6 +1,7 @@
 import { and, eq, sql } from "drizzle-orm";
 import { getDb } from "@/db";
-import { fines } from "@/db/schema";
+import { attendance, fines } from "@/db/schema";
+import { PENDING_FINE_MESSAGE } from "@/lib/attendance";
 import { privateJson, requireAdmin } from "@/lib/admin-auth";
 import { FINE_AMOUNT, validateFineStatus } from "@/lib/fines";
 
@@ -17,9 +18,11 @@ export async function POST(request: Request) {
     const now = new Date().toISOString();
     const id = crypto.randomUUID();
     // Conditional insert rechecks eligibility and snapshots the attendance in one statement.
+    const [target] = await db.select({ pending: attendance.pending }).from(attendance).where(eq(attendance.id, input.attendanceId)).limit(1);
+    if (target?.pending) return privateJson({ error: PENDING_FINE_MESSAGE }, 409);
     const inserted = await db.run(sql`INSERT INTO fines (id, attendance_id, date, name, type, amount, status, paid_at, created_at, updated_at, revision)
       SELECT ${id}, id, date, name, type, ${FINE_AMOUNT}, 'unpaid', NULL, ${now}, ${now}, 0 FROM attendance
-      WHERE id = ${input.attendanceId}
+      WHERE id = ${input.attendanceId} AND pending = 0
       ON CONFLICT(attendance_id) DO NOTHING`);
     if (!inserted.meta.changes) return privateJson({ error: "이미 부과했거나 출결이 변경·삭제되었어요. 목록을 새로고침해 주세요." }, 409);
     return privateJson({ created: true }, 201);

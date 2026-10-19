@@ -9,6 +9,7 @@ export const attendance = sqliteTable("attendance", {
   createdAt: text("created_at").notNull(),
   ownerId: text("owner_id"),
   adminRecord: integer("admin_record").notNull().default(0),
+  pending: integer("pending").notNull().default(0),
 }, (table) => [uniqueIndex("attendance_date_name_type_unique").on(table.date, table.name, table.type)]);
 
 export const adminLoginAttempts = sqliteTable("admin_login_attempts", {

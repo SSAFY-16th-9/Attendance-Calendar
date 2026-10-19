@@ -20,7 +20,7 @@ export async function POST(request: Request) {
     const duplicate = await db.select({ id: attendance.id }).from(attendance).where(and(eq(attendance.date, valid.date), inArray(attendance.name, nameAliases(member.name)))).limit(1);
     if (duplicate.length) return privateJson({ error: DAILY_LIMIT_MESSAGE }, 409);
     const now = new Date().toISOString(); const fineId = crypto.randomUUID();
-    const entry = { ...valid, id: input.id, ownerId: member.id, adminRecord: 1, createdAt: now };
+    const entry = { ...valid, pending: 0, id: input.id, ownerId: member.id, adminRecord: 1, createdAt: now };
     await db.batch([
       db.insert(attendance).values(entry),
       db.insert(fines).values({ id: fineId, attendanceId: input.id, date: valid.date, name: member.name, type: valid.type, amount: FINE_AMOUNT, status: "unpaid", createdAt: now, updatedAt: now, revision: 0 }),

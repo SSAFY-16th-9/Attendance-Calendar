@@ -64,7 +64,13 @@ export async function PATCH(request: Request) {
     if (duplicate.length) return privateJson({ error: DAILY_LIMIT_MESSAGE }, 409);
     const [owner] = await db.select({ id: members.id }).from(members).where(eq(members.name, valid.name)).limit(1);
     if (!owner) return privateJson({ error: "등록된 회원을 선택해 주세요." }, 400);
-    const [entries] = await db.batch([db.update(attendance).set({ ...valid, ownerId: owner.id }).where(eq(attendance.id, input.id)).returning(), syncFineWithAttendance(db, input.id)]);
+    // 무단 records cannot be marked 미정; callers that omit pending (the /admin table) keep the current value.
+    if (valid.pending) {
+      const [current] = await db.select({ adminRecord: attendance.adminRecord, fineStatus: fines.status }).from(attendance).leftJoin(fines, eq(attendance.id, fines.attendanceId)).where(eq(attendance.id, input.id)).limit(1);
+      if (current && (current.adminRecord === 1 || (current.fineStatus && current.fineStatus !== "waived"))) return privateJson({ error: "무단 출결은 미정으로 바꿀 수 없어요." }, 409);
+    }
+    const { pending, ...fields } = valid;
+    const [entries] = await db.batch([db.update(attendance).set({ ...fields, ...(input.pending === undefined ? {} : { pending }), ownerId: owner.id }).where(eq(attendance.id, input.id)).returning(), syncFineWithAttendance(db, input.id)]);
     if (!entries.length) return privateJson({ error: "이미 삭제된 내역이에요. 목록을 새로고침해 주세요." }, 404);
     return privateJson({ entry: entries[0] });
   } catch (error) {

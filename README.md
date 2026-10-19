@@ -31,6 +31,13 @@
 - **무단으로 확인된 기록은 캘린더·상세 배지에 빨간색과 ‘무단’ 문구로 표시**합니다. 사전 공유한 같은 출결 종류와 구별됩니다. 납부해도 무단 표시는 유지합니다. 기존 일반 출결의 부과를 취소하면 일반 표시로 돌아가며, 관리자가 직접 등록한 무단 기록은 무단 표시를 유지합니다.
 - 인증: 8시간(자동 로그인 시 회원 30일·관리자 7일) HttpOnly 서명 쿠키, HTTPS에서는 Secure·SameSite=Strict. 회원 세션마다 DB 활성 상태·session_version을 검증합니다. 계정 정보 API에는 비밀번호 해시·salt를 반환하지 않습니다. 보호 페이지·API는 private/no-store입니다.
 
+### 미정 출결 (2026-10-19 추가)
+
+- 출결 등록·수정 창의 **미정 토글**로 아직 확정되지 않은 출결을 표시합니다. 캘린더·명단·팝업에 무단처럼 **"미정 · 사유"** 접두어와 점선 테두리로 보입니다(`statusPrefix`).
+- 미정도 하루 1건 규칙에 포함됩니다. 미정 출결에는 벌금을 부과할 수 없고(서버에서 차단), 무단 출결은 미정으로 바꿀 수 없습니다. 관리자 무단 직접 추가는 항상 미정 아님으로 저장합니다.
+- `/admin` 표처럼 `pending`을 보내지 않는 수정은 기존 미정 값을 유지합니다.
+- **운영 D1에 컬럼 추가가 필요합니다**: D1 Console에서 `ssafy-attendance/scripts/setup-pending.sql`을 한 번 실행합니다(`drizzle/0004_add_pending.sql`과 같은 내용). **코드를 배포하기 전에 먼저 실행해야** 출결 조회가 깨지지 않습니다. `duplicate column name: pending`이면 이미 적용된 것입니다.
+
 #### 이번 배포에 필요한 D1 Console 작업
 
 **코드 푸시와 운영 DB 변경은 별도입니다. 회원 테이블과 출결 컬럼을 추가해야 회원 로그인이 작동합니다.**
@@ -236,7 +243,7 @@ npm run build
 - Build command: `npm run build`
 - Deploy command: `npx wrangler deploy --config dist/server/wrangler.json`
 - 초기 설정에서는 Preview builds를 끕니다. 공개 방문을 원하면 Cloudflare Access를 끕니다.
-- 새 D1은 0000·0001·0002·setup-member-access를 순서대로 적용합니다. 기존 운영 D1은 위의 이번 배포 Console 안내대로 빠진 신규 구조만 추가합니다. 테이블을 삭제하거나 초기 SQL을 무조건 재실행하지 않습니다.
+- 새 D1은 0000·0001·0002·setup-member-access·setup-pending(또는 0004)을 순서대로 적용합니다. 기존 운영 D1은 위의 이번 배포 Console 안내대로 빠진 신규 구조만 추가합니다. 테이블을 삭제하거나 초기 SQL을 무조건 재실행하지 않습니다.
 - 관리자 설정 4개는 배포된 Worker의 Settings → Variables and Secrets에 Secret으로 등록합니다. 빌드용 환경변수와 구분하며 비밀번호 원문 대신 해시를 사용합니다.
 - 기존 Sites DB·비밀 설정은 개인 Cloudflare 계정으로 자동 이전되지 않습니다.
 - 배포 후 발급된 `workers.dev` 주소에서 등록·조회·관리자 로그인까지 검증해야 이전 완료입니다. 기존 Sites 방문 제한 대신 이번 앱 자체 회원 로그인을 사용합니다.

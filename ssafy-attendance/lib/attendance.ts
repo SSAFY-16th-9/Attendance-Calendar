@@ -7,9 +7,12 @@ export const MEMBERS = [
 
 export const TYPES = ["공가", "사유지각", "사유조퇴", "사유결석", "임의지각", "임의조퇴", "임의결석"] as const;
 export type AttendanceType = typeof TYPES[number];
-export type AttendanceEntry = { id: string; date: string; name: string; type: AttendanceType; reason: string; createdAt: string; ownerId?: string | null; adminRecord?: number; unnotified?: boolean; fineId?: string | null; fineStatus?: string | null; hidden?: boolean };
+export type AttendanceEntry = { id: string; date: string; name: string; type: AttendanceType; reason: string; createdAt: string; ownerId?: string | null; adminRecord?: number; pending?: number; unnotified?: boolean; fineId?: string | null; fineStatus?: string | null; hidden?: boolean };
 
 // A person can have at most one attendance record per day; later changes go through editing.
+// Label prefix shared by the calendar, day list and popup.
+export const statusPrefix = (entry: { unnotified?: boolean; pending?: number }) => entry.unnotified ? "무단 · " : entry.pending ? "미정 · " : "";
+export const PENDING_FINE_MESSAGE = "미정 출결에는 벌금을 부과할 수 없어요. 확정된 뒤 부과해 주세요.";
 export const DAILY_LIMIT_MESSAGE = "이 날짜에는 이미 등록된 출결이 있어요. 한 날짜에 1명당 1건만 등록할 수 있으니 기존 출결을 수정해 주세요.";
 
 // Day lists show the viewer's own record first, then 조퇴 → 지각 → 결석 → 공가.
@@ -30,7 +33,7 @@ export function dateKey(year: number, month: number, day: number) {
   return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
-export function validateEntry(value: unknown): { date: string; name: string; type: AttendanceType; reason: string } | string {
+export function validateEntry(value: unknown): { date: string; name: string; type: AttendanceType; reason: string; pending: 0 | 1 } | string {
   if (!value || typeof value !== "object") return "등록할 내용을 확인해 주세요.";
   const input = value as Record<string, unknown>;
   if (typeof input.date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(input.date)) return "날짜를 선택해 주세요.";
@@ -41,5 +44,6 @@ export function validateEntry(value: unknown): { date: string; name: string; typ
   if (input.reason != null && typeof input.reason !== "string") return "상세 이유는 글자로 입력해 주세요.";
   const reason = (input.reason as string || "").trim();
   if (reason.length > 500) return "상세 이유는 500자까지 입력할 수 있어요.";
-  return { date: input.date, name: input.name as string, type: input.type as AttendanceType, reason };
+  if (input.pending != null && typeof input.pending !== "boolean") return "미정 여부를 확인해 주세요.";
+  return { date: input.date, name: input.name as string, type: input.type as AttendanceType, reason, pending: input.pending ? 1 : 0 };
 }
