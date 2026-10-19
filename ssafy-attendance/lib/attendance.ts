@@ -7,7 +7,7 @@ export const MEMBERS = [
 
 export const TYPES = ["공가", "사유지각", "사유조퇴", "사유결석", "임의지각", "임의조퇴", "임의결석"] as const;
 export type AttendanceType = typeof TYPES[number];
-export type AttendanceEntry = { id: string; date: string; name: string; type: AttendanceType; reason: string; createdAt: string; ownerId?: string | null; adminRecord?: number; pending?: number; unnotified?: boolean; fineId?: string | null; fineStatus?: string | null; hidden?: boolean };
+export type AttendanceEntry = { id: string; date: string; name: string; type: AttendanceType; reason: string; createdAt: string; ownerId?: string | null; adminRecord?: number; pending?: number; unnotified?: boolean; fineId?: string | null; fineStatus?: string | null };
 
 // A person can have at most one attendance record per day; later changes go through editing.
 // Label prefix shared by the calendar, day list and popup.
