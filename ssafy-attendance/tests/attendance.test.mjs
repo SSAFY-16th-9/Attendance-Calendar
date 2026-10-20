@@ -4,11 +4,11 @@ import { MEMBERS, TYPES, validateEntry, dateKey, koreaToday, canonicalName, name
 
 const valid = { date: '2026-10-16', name: '이주언', type: '공가' };
 
-test('roster has the 25 distinct names supplied by the class', () => {
-  assert.equal(MEMBERS.length, 25);
-  assert.equal(new Set(MEMBERS).size, 25);
+test('initial roster has the 24 distinct names supplied by the class', () => {
+  assert.equal(MEMBERS.length, 24);
+  assert.equal(new Set(MEMBERS).size, 24);
   assert.ok(MEMBERS.includes('황규진'));
-  assert.ok(MEMBERS.includes('이미지'));
+  assert.ok(MEMBERS.includes('이민지'));
   assert.ok(MEMBERS.includes('조석래'));
   assert.ok(MEMBERS.includes('이주언'));
   assert.ok(!MEMBERS.includes('이주연'));

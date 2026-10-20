@@ -15,7 +15,6 @@ export const CLASS_ROSTER = [
   { name: "황인규", username: "hig7463" },
   { name: "전현민", username: "joyjhm" },
   { name: "김세진", username: "kimsejin0206" },
-  // { name: "김승환", username: "kseysh123" },
   { name: "남윤혁", username: "nyhryan99102" },
   { name: "박재성", username: "pjs20481" },
   { name: "김별찬", username: "qufstar46" },
