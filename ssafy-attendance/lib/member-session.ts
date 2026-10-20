@@ -4,7 +4,7 @@ import { getDb } from "@/db";
 import { members } from "@/db/schema";
 import { createSession, verifySession, SESSION_SECONDS } from "./admin-session";
 
-export type MemberIdentity = { id: string; username: string; name: string; role: "member"; mustChangePassword: boolean; sessionVersion: number };
+export type MemberIdentity = { id: string; username: string; name: string; role: "member"; mustChangePassword: boolean; sessionVersion: number; isAdmin: boolean };
 export function memberSecret() { return (env as unknown as Record<string, string | undefined>).ADMIN_SESSION_SECRET || ""; }
 const name = (request: Request) => new URL(request.url).protocol === "https:" ? "__Host-ssafy_member" : "ssafy_member_local";
 export function memberCookie(request: Request, token: string, seconds = SESSION_SECONDS) { return `${name(request)}=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${token ? seconds : 0}${new URL(request.url).protocol === "https:" ? "; Secure" : ""}`; }
@@ -21,6 +21,6 @@ export async function getMember(request: Request): Promise<MemberIdentity | null
     const [, id, version] = payload.username.split(":");
     const [member] = await getDb().select().from(members).where(eq(members.id, id)).limit(1);
     if (!member || member.active !== 1 || member.sessionVersion !== Number(version)) return null;
-    return { id: member.id, username: member.username, name: member.name, role: "member", mustChangePassword: member.mustChangePassword === 1, sessionVersion: member.sessionVersion };
+    return { id: member.id, username: member.username, name: member.name, role: "member", mustChangePassword: member.mustChangePassword === 1, sessionVersion: member.sessionVersion, isAdmin: member.isAdmin === 1 };
   } catch { return null; }
 }

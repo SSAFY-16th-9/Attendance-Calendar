@@ -34,7 +34,7 @@ export function summarizeFines(entries: Pick<Fine, "amount" | "status">[]): Fine
   return summary;
 }
 
-export function summarizePeople(entries: Pick<Fine, "name" | "amount" | "status">[]): PersonFineSummary[] {
-  return MEMBERS.map(name => ({ name, ...summarizeFines(entries.filter(entry => canonicalName(entry.name) === name)) }))
+export function summarizePeople(entries: Pick<Fine, "name" | "amount" | "status">[], names: readonly string[] = MEMBERS): PersonFineSummary[] {
+  return names.map(name => ({ name, ...summarizeFines(entries.filter(entry => canonicalName(entry.name) === name)) }))
     .sort((a, b) => b.outstanding - a.outstanding || b.assessed - a.assessed || a.name.localeCompare(b.name, "ko"));
 }

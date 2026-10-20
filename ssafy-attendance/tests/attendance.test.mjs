@@ -26,8 +26,9 @@ test('all seven requested reasons are accepted without optional details', () => 
   for (const type of TYPES) assert.deepEqual(validateEntry({ ...valid, type }), { ...valid, type, reason: '', pending: 0 });
 });
 
-test('name must be a roster selection and reason must be supported', () => {
-  for (const input of [null, {}, { ...valid, name: '' }, { ...valid, name: '명단에없는이름' }, { ...valid, type: '' }, { ...valid, type: '휴가' }]) {
+// Roster membership is checked against the members table by the API; here only the name's shape.
+test('name must be a well-formed roster name and reason must be supported', () => {
+  for (const input of [null, {}, { ...valid, name: '' }, { ...valid, name: '김1' }, { ...valid, name: ' 김민수' }, { ...valid, name: '가'.repeat(21) }, { ...valid, type: '' }, { ...valid, type: '휴가' }]) {
     assert.equal(typeof validateEntry(input), 'string');
   }
 });
@@ -83,4 +84,12 @@ test('several dates register together and stay within the limit', async () => {
   assert.equal(typeof validateEntries({ dates: ['2026-10-21', '2026-02-30'], type: '공가' }, '이주언'), 'string');
   assert.equal(takenDatesMessage(['2026-10-21']), DAILY_LIMIT_MESSAGE);
   assert.match(takenDatesMessage(['2026-10-21', '2026-10-22']), /^10\/21, 10\/22에는/);
+});
+
+test('roster names and usernames follow the admin form rules', async () => {
+  const { isMemberName, isMemberUsername } = await import('../lib/attendance.ts');
+  for (const name of ['김민수', '이주언', 'Alex Kim', '가']) assert.equal(isMemberName(name), true, name);
+  for (const name of ['', '이주연', '김 ', '김1', 'a'.repeat(21)]) assert.equal(isMemberName(name), false, name);
+  for (const username of ['joyjhm', 'coasterrrrr', 'a.b_c-1']) assert.equal(isMemberUsername(username), true, username);
+  for (const username of ['ab', 'with space', '한글', 'x'.repeat(41)]) assert.equal(isMemberUsername(username), false, username);
 });

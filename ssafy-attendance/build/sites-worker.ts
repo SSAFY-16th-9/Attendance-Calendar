@@ -8,7 +8,7 @@ export default {
     const url = new URL(request.url);
     const publicPath = url.pathname === "/login" || url.pathname === "/api/session" || url.pathname === "/api/admin/session" || url.pathname === "/favicon.svg" || url.pathname.startsWith("/_next/") || url.pathname.startsWith("/@") || url.pathname.startsWith("/__vite");
     // Anyone may view the calendar; adding, editing and the other pages still need a login.
-    const publicRead = request.method === "GET" && (url.pathname === "/" || url.pathname === "/api/attendance");
+    const publicRead = request.method === "GET" && (url.pathname === "/" || url.pathname === "/api/attendance" || url.pathname === "/api/roster");
     if (!publicPath) {
       const actor = await getActor(request);
       if (!actor && !publicRead) {

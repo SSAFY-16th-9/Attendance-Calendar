@@ -27,6 +27,8 @@ export const members = sqliteTable("members", {
   active: integer("active").notNull().default(1),
   mustChangePassword: integer("must_change_password").notNull().default(1),
   sessionVersion: integer("session_version").notNull().default(0),
+  // Sub-admin: a member the core admin account granted admin rights to.
+  isAdmin: integer("is_admin").notNull().default(0),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });

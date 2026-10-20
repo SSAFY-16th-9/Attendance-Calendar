@@ -1,3 +1,5 @@
+// Initial class list used by the seed scripts and tests. The live roster is the members table
+// (admins add, rename and remove people at /admin/members); read it through /api/roster.
 export const MEMBERS = [
   "이주언", "황규진", "남윤혁", "최성현", "임장원", "박재성",
   "전현민", "이지호", "김세진", "고태호", "강유빈", "이승하",
@@ -44,6 +46,9 @@ export function sortForViewer<T extends { name: string; type: string }>(entries:
   return [...entries].sort((a, b) => mine(a) - mine(b) || DISPLAY_ORDER.indexOf(a.type as AttendanceType) - DISPLAY_ORDER.indexOf(b.type as AttendanceType) || a.name.localeCompare(b.name, "ko"));
 }
 
+// Roster names: 1–20 Korean or Latin letters (spaces allowed inside), never an old alias like 이주연.
+export const isMemberName = (name: string) => /^[가-힣A-Za-z][가-힣A-Za-z ]{0,18}[가-힣A-Za-z]$|^[가-힣A-Za-z]$/.test(name) && canonicalName(name) === name;
+export const isMemberUsername = (username: string) => /^[A-Za-z0-9._-]{3,40}$/.test(username);
 export const canonicalName = (name: string) => name === "이주연" ? "이주언" : name;
 export const nameAliases = (name: string) => name === "이주언" ? ["이주언", "이주연"] : [name];
 
@@ -61,7 +66,7 @@ export function validateEntry(value: unknown): { date: string; name: string; typ
   if (typeof input.date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(input.date)) return "날짜를 선택해 주세요.";
   const date = new Date(`${input.date}T00:00:00Z`);
   if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== input.date || input.date < "2000-01-01" || input.date > "2100-12-31") return "올바른 날짜를 선택해 주세요.";
-  if (!MEMBERS.includes(input.name as typeof MEMBERS[number])) return "반 명단에서 이름을 선택해 주세요.";
+  if (typeof input.name !== "string" || !isMemberName(input.name)) return "반 명단에서 이름을 선택해 주세요.";
   if (!TYPES.includes(input.type as AttendanceType)) return "출결 사유를 선택해 주세요.";
   if (input.reason != null && typeof input.reason !== "string") return "상세 이유는 글자로 입력해 주세요.";
   const reason = (input.reason as string || "").trim();

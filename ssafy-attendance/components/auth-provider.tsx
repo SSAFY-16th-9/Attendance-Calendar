@@ -1,6 +1,6 @@
 "use client";
 import { createContext, useContext, useEffect, useState } from "react";
-export type CurrentUser = { id: string | null; name: string; username: string; role: "member" | "admin"; mustChangePassword: boolean };
+export type CurrentUser = { id: string | null; name: string; username: string; role: "member" | "admin"; mustChangePassword: boolean; superAdmin?: boolean };
 const AuthContext = createContext<{ user: CurrentUser | null; loading: boolean }>({ user: null, loading: true });
 export function useAuth() { return useContext(AuthContext); }
 export default function AuthProvider({ children }: { children: React.ReactNode }) {

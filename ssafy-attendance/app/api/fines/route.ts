@@ -1,6 +1,6 @@
 import { and, eq, like, sql } from "drizzle-orm";
 import { getDb } from "@/db";
-import { fines } from "@/db/schema";
+import { fines, members } from "@/db/schema";
 import { canonicalName } from "@/lib/attendance";
 import { Fine, FINE_STATUSES, summarizeFines, summarizePeople } from "@/lib/fines";
 import { requireActor } from "@/lib/site-auth";
@@ -18,10 +18,11 @@ export async function GET(request: Request) {
   try {
     const canonical = sql<string>`CASE WHEN ${fines.name} = '이주연' THEN '이주언' ELSE ${fines.name} END`;
     const rows = await getDb().select().from(fines).where(and(month ? like(fines.date, `${month}-%`) : undefined, name ? sql`instr(${canonical}, ${name}) > 0` : undefined)).orderBy(sql`${fines.date} desc`, fines.name, fines.id);
+    const roster = await getDb().select({ name: members.name }).from(members).orderBy(members.name);
     const all = rows.map(entry => ({ ...entry, name: canonicalName(entry.name) })) as Fine[];
     const filtered = all.filter(entry => !status || entry.status === status);
     const pageSize = 50;
-    return json({ entries: filtered.slice((page - 1) * pageSize, page * pageSize), summary: summarizeFines(all), people: summarizePeople(all).filter(person => !name || person.name.includes(name)), total: filtered.length, page, pageSize });
+    return json({ entries: filtered.slice((page - 1) * pageSize, page * pageSize), summary: summarizeFines(all), people: summarizePeople(all, roster.map(row => row.name)).filter(person => !name || person.name.includes(name)), total: filtered.length, page, pageSize });
   } catch (error) {
     console.error("Fine read failed", error);
     return json({ error: "벌금 현황을 불러오지 못했어요. 관리자에게 데이터베이스 설정 확인을 요청해 주세요." }, 503);

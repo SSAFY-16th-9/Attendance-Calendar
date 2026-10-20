@@ -31,6 +31,13 @@
 - **무단으로 확인된 기록은 캘린더·상세 배지에 빨간색과 ‘무단’ 문구로 표시**합니다. 사전 공유한 같은 출결 종류와 구별됩니다. 납부해도 무단 표시는 유지합니다. 기존 일반 출결의 부과를 취소하면 일반 표시로 돌아가며, 관리자가 직접 등록한 무단 기록은 무단 표시를 유지합니다.
 - 인증: 8시간(자동 로그인 시 회원 30일·관리자 7일) HttpOnly 서명 쿠키, HTTPS에서는 Secure·SameSite=Strict. 회원 세션마다 DB 활성 상태·session_version을 검증합니다. 계정 정보 API에는 비밀번호 해시·salt를 반환하지 않습니다. 보호 페이지·API는 private/no-store입니다.
 
+### 명단 관리와 하위 관리자 (2026-10-20 추가)
+
+- **반 명단의 기준은 DB `members` 표**입니다. 캘린더 명단·인원 수, 벌금 개인별 현황, 관리자 출결 수정의 회원 선택은 `GET /api/roster`(이름만, 로그인 불필요)와 DB를 씁니다. `lib/attendance.ts`의 `MEMBERS`·`lib/class-roster.ts`는 초기 시드와 테스트용으로만 남아 있습니다.
+- `/admin/members`에서 **인원 추가**(처음 비밀번호 = 아이디, 첫 로그인 때 변경), **이름 변경**(그 회원의 출결·벌금 이름도 함께 변경), **아이디 변경**(처음 비밀번호를 쓰는 중이면 처음 비밀번호도 새 아이디로), **삭제**(출결·벌금이 있으면 건수를 보여 주고 한 번 더 확인 후 함께 삭제)를 합니다. 기록을 남기려면 이용 정지를 씁니다.
+- **핵심 관리자**는 `ADMIN_USERNAME`(admin) 계정이고, 회원에게 **관리자 권한 주기/빼기**는 핵심 관리자만 할 수 있습니다(`isSuperAdmin`). 권한을 받은 회원(**하위 관리자**, `members.is_admin = 1`)은 자기 아이디로 로그인해 모든 관리자 기능을 씁니다(`isAdmin`, 첫 비밀번호를 바꾼 뒤부터). 하위 관리자는 다른 관리자 계정의 아이디 변경·비밀번호 초기화·이용 정지·삭제를 할 수 없습니다. 권한 변경은 그 회원의 로그인을 끊어 바로 적용됩니다.
+- **운영 D1에 컬럼 추가가 필요합니다**: `ssafy-attendance/scripts/setup-sub-admin.sql`(= `drizzle/0005_add_sub_admin.sql`)을 **코드 배포 전에** 한 번 실행합니다. `duplicate column name: is_admin`이면 이미 적용된 것입니다.
+
 ### 여러 날짜 등록과 함께 수정 (2026-10-19 추가)
 
 - 등록 창에서 날짜를 고를 때마다 칩으로 쌓여 **최대 31일을 같은 사유로 한 번에 등록**합니다(`dates` 배열, `requestedDates`·`validateEntries`). 서버는 여러 행을 한 번에 넣어 모두 저장되거나 모두 취소되고, 겹치는 날짜가 하나라도 있으면 그 날짜들을 알려 주며 거부합니다.
@@ -250,7 +257,7 @@ npm run build
 - Build command: `npm run build`
 - Deploy command: `npx wrangler deploy --config dist/server/wrangler.json`
 - 초기 설정에서는 Preview builds를 끕니다. 공개 방문을 원하면 Cloudflare Access를 끕니다.
-- 새 D1은 0000·0001·0002·setup-member-access·setup-pending(또는 0004)을 순서대로 적용합니다. 기존 운영 D1은 위의 이번 배포 Console 안내대로 빠진 신규 구조만 추가합니다. 테이블을 삭제하거나 초기 SQL을 무조건 재실행하지 않습니다.
+- 새 D1은 0000·0001·0002·setup-member-access·setup-pending(또는 0004)·setup-sub-admin(또는 0005)을 순서대로 적용합니다. 기존 운영 D1은 위의 이번 배포 Console 안내대로 빠진 신규 구조만 추가합니다. 테이블을 삭제하거나 초기 SQL을 무조건 재실행하지 않습니다.
 - 관리자 설정 4개는 배포된 Worker의 Settings → Variables and Secrets에 Secret으로 등록합니다. 빌드용 환경변수와 구분하며 비밀번호 원문 대신 해시를 사용합니다.
 - 기존 Sites DB·비밀 설정은 개인 Cloudflare 계정으로 자동 이전되지 않습니다.
 - 배포 후 발급된 `workers.dev` 주소에서 등록·조회·관리자 로그인까지 검증해야 이전 완료입니다. 기존 Sites 방문 제한 대신 이번 앱 자체 회원 로그인을 사용합니다.

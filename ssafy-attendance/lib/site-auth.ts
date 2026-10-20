@@ -1,10 +1,13 @@
-import { isAdmin, privateJson, sameOrigin } from "./admin-auth";
+import { isSuperAdmin, privateJson, sameOrigin } from "./admin-auth";
 import { getMember, MemberIdentity } from "./member-session";
 
-export type Actor = MemberIdentity | { id: null; username: "admin"; name: "관리자"; role: "admin"; mustChangePassword: false };
+export type Actor = (MemberIdentity & { superAdmin?: false }) | (Omit<MemberIdentity, "role"> & { role: "admin"; superAdmin: false }) | { id: null; username: "admin"; name: "관리자"; role: "admin"; mustChangePassword: false; superAdmin: true };
 export async function getActor(request: Request): Promise<Actor | null> {
-  if (await isAdmin(request)) return { id: null, username: "admin", name: "관리자", role: "admin", mustChangePassword: false };
-  return getMember(request);
+  if (await isSuperAdmin(request)) return { id: null, username: "admin", name: "관리자", role: "admin", mustChangePassword: false, superAdmin: true };
+  const member = await getMember(request);
+  // A sub-admin still on the first password stays a member until it is changed.
+  if (member?.isAdmin && !member.mustChangePassword) return { ...member, role: "admin", superAdmin: false };
+  return member;
 }
 export async function requireActor(request: Request) {
   if (!sameOrigin(request)) return { error: privateJson({ error: "이 사이트에서 다시 시도해 주세요." }, 403), actor: null };

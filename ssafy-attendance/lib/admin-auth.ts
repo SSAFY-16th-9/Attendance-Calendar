@@ -3,6 +3,7 @@ import { eq, lt, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { adminLoginAttempts } from "@/db/schema";
 import { verifySession, SESSION_SECONDS } from "./admin-session";
+import { getMember } from "./member-session";
 
 export function adminConfig() {
   const secrets = env as unknown as Record<string, string | undefined>;
@@ -19,11 +20,19 @@ export function sessionCookie(request: Request, token: string, seconds = SESSION
   return `${cookieName(request)}=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${token ? seconds : 0}${new URL(request.url).protocol === "https:" ? "; Secure" : ""}`;
 }
 
-export async function isAdmin(request: Request) {
+// The core admin is the account configured in ADMIN_USERNAME; only it grants or removes admin rights.
+export async function isSuperAdmin(request: Request) {
   const config = adminConfig();
   if (!config) return false;
   const token = (request.headers.get("cookie") || "").split(";").map(part => part.trim()).find(part => part.startsWith(`${cookieName(request)}=`))?.slice(cookieName(request).length + 1) || "";
   return verifySession(token, config.username, config.secret);
+}
+
+// Admin pages and APIs accept the core admin or an active sub-admin who has set their own password.
+export async function isAdmin(request: Request) {
+  if (await isSuperAdmin(request)) return true;
+  const member = await getMember(request);
+  return !!member && member.isAdmin && !member.mustChangePassword;
 }
 
 export async function requireAdmin(request: Request) {

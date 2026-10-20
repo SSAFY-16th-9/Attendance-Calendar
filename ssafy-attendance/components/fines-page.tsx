@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, Banknote, Check, ChevronLeft, ChevronRight, CircleCheck, Info, Layers2, LoaderCircle, Search, ShieldCheck, Wallet, X } from "lucide-react";
 import { emptySummary, Fine, FineReport, FineStatus, FINE_AMOUNT, STATUS_LABELS, won } from "@/lib/fines";
-import { koreaToday, MEMBERS } from "@/lib/attendance";
+import { koreaToday } from "@/lib/attendance";
 import IncidentDialog from "./incident-dialog";
 
 const blankReport: FineReport = { entries: [], summary: { ...emptySummary }, people: [], total: 0, page: 1, pageSize: 50 };
