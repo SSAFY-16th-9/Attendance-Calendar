@@ -19,6 +19,12 @@ export const typeClass = (type: string) => `type-${TYPES.indexOf(type as Attenda
 export const statusClass = (entry: { type: string; unnotified?: boolean; pending?: number }) => entry.unnotified ? "unnotified" : `${typeClass(entry.type)}${entry.pending ? " pending" : ""}`;
 // Label prefix shared by the calendar, day list and popup.
 export const statusPrefix = (entry: { unnotified?: boolean; pending?: number }) => entry.unnotified ? "무단 · " : entry.pending ? "미정 · " : "";
+// Automatic 무단: a member registering their own record after 08:00 KST on that day did not share it in time.
+// Applies to attendance dates from 2026-10-22; earlier dates keep the admin-confirmed rule only.
+export const LATE_RULE_FROM = "2026-10-22";
+export const LATE_CUTOFF_HOUR = 8;
+export const isLateRegistration = (date: string, now: Date = new Date()) => date >= LATE_RULE_FROM && now.getTime() >= new Date(`${date}T${String(LATE_CUTOFF_HOUR).padStart(2, "0")}:00:00+09:00`).getTime();
+export const LATE_NOTICE = `당일 오전 ${LATE_CUTOFF_HOUR}시 이후에 본인이 등록하면 무단으로 처리되고 벌금 5,000원이 자동 부과돼요.`;
 export const PENDING_FINE_MESSAGE = "미정 출결에는 벌금을 부과할 수 없어요. 확정된 뒤 부과해 주세요.";
 // New records may cover several dates at once (same type and reason). Records saved
 // together share created_at and owner, which is how edits find "함께 등록한" records.

@@ -105,3 +105,16 @@ test('무단 detection and display classes are shared by the API and the UI', as
   assert.equal(statusClass({ type: '사유지각', pending: 1 }), 'type-1 pending');
   assert.equal(statusClass({ type: '사유지각' }), 'type-1');
 });
+
+test('self-registrations after 08:00 KST on the day become 무단 from 2026-10-22 on', async () => {
+  const { isLateRegistration, LATE_RULE_FROM } = await import('../lib/attendance.ts');
+  assert.equal(LATE_RULE_FROM, '2026-10-22');
+  const at = iso => new Date(iso);
+  assert.equal(isLateRegistration('2026-10-22', at('2026-10-22T07:59:59+09:00')), false);
+  assert.equal(isLateRegistration('2026-10-22', at('2026-10-22T08:00:00+09:00')), true);
+  assert.equal(isLateRegistration('2026-10-22', at('2026-10-23T01:00:00+09:00')), true);
+  assert.equal(isLateRegistration('2026-10-25', at('2026-10-22T09:00:00+09:00')), false);
+  // days before the rule starts are never automatic 무단
+  assert.equal(isLateRegistration('2026-10-21', at('2026-10-21T15:00:00+09:00')), false);
+  assert.equal(isLateRegistration('2026-10-20', at('2026-10-22T09:00:00+09:00')), false);
+});

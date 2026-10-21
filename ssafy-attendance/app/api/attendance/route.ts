@@ -1,9 +1,9 @@
 import { and, eq, inArray, like, ne } from "drizzle-orm";
 import { getDb } from "@/db";
 import { attendance, fines } from "@/db/schema";
-import { canonicalName, DAILY_LIMIT_MESSAGE, isUnnotified, nameAliases, takenDatesMessage, validateEntries, validateEntry } from "@/lib/attendance";
+import { canonicalName, DAILY_LIMIT_MESSAGE, isLateRegistration, isUnnotified, nameAliases, takenDatesMessage, validateEntries, validateEntry } from "@/lib/attendance";
 import { privateJson as json, sameOrigin } from "@/lib/admin-auth";
-import { isUniqueConflict, ownedBy, takenDates } from "@/lib/records";
+import { autoFine, isUniqueConflict, ownedBy, takenDates } from "@/lib/records";
 import { DELETE as adminDelete } from "@/app/api/admin/attendance/route";
 import { getActor, requireActor } from "@/lib/site-auth";
 import { syncFineWithAttendance } from "@/lib/fine-sync";
@@ -41,9 +41,12 @@ export async function POST(request: Request) {
     const db = getDb(); const now = new Date().toISOString();
     const taken = await takenDates(db, valid.map(entry => entry.date), auth.actor.name);
     if (taken.length) return json({ error: takenDatesMessage(taken) }, 409);
-    // One multi-row insert: every date is saved, or none is.
-    const saved = await db.insert(attendance).values(valid.map(entry => ({ ...entry, id: crypto.randomUUID(), createdAt: now, ownerId: auth.actor.id, adminRecord: 0 }))).returning();
-    return json({ entry: saved[0], entries: saved }, 201);
+    // One batch: every date (and any automatic 무단 fine) is saved, or none is.
+    const rows = valid.map(entry => { const late = isLateRegistration(entry.date); return { ...entry, pending: late ? 0 : entry.pending, id: crypto.randomUUID(), createdAt: now, ownerId: auth.actor.id, adminRecord: 0, late }; });
+    const lateIds = rows.filter(row => row.late).map(row => row.id);
+    const [saved] = await db.batch([db.insert(attendance).values(rows.map(({ late: _late, ...row }) => row)).returning(), ...rows.filter(row => row.late).map(row => autoFine(db, row, now))]);
+    const entries = saved.map(entry => lateIds.includes(entry.id) ? { ...entry, unnotified: true, fineStatus: "unpaid" } : entry);
+    return json({ entry: entries[0], entries, lateCount: lateIds.length }, 201);
   } catch (error) {
     console.error("Attendance write failed", error);
     return json({ error: "저장하지 못했어요. 입력 내용은 유지되니 다시 시도해 주세요." }, 503);
@@ -81,9 +84,11 @@ export async function PATCH(request: Request) {
     if (unnotified && valid.date !== existing.date) return json({ error: "무단 출결은 날짜를 바꿀 수 없어요. 사유와 상세 이유만 수정할 수 있어요." }, 403);
     const duplicate = await db.select({ id: attendance.id }).from(attendance).where(and(eq(attendance.date, valid.date), inArray(attendance.name, nameAliases(valid.name)), ne(attendance.id, input.id))).limit(1);
     if (duplicate.length) return json({ error: DAILY_LIMIT_MESSAGE }, 409);
-    const [updated] = await db.batch([db.update(attendance).set({ ...fields, ...(input.pending === undefined ? {} : { pending }), ownerId: auth.actor.id }).where(and(ownership, eq(attendance.date, existing.date))).returning(), syncFineWithAttendance(db, input.id)]);
+    // Moving a record onto a day whose 8 a.m. has passed counts as a late registration.
+    const late = valid.date !== existing.date && isLateRegistration(valid.date);
+    const [updated] = await db.batch([db.update(attendance).set({ ...fields, ...(late ? { pending: 0 } : input.pending === undefined ? {} : { pending }), ownerId: auth.actor.id }).where(and(ownership, eq(attendance.date, existing.date))).returning(), syncFineWithAttendance(db, input.id), ...(late ? [autoFine(db, { id: input.id, date: valid.date, name: auth.actor.name, type: valid.type }, new Date().toISOString())] : [])]);
     if (!updated.length) return json({ error: "출결 상태가 바뀌었어요. 새로고침해 주세요." }, 409);
-    return json({ entry: updated[0] });
+    return json({ entry: late ? { ...updated[0], unnotified: true, fineStatus: "unpaid" } : updated[0], lateCount: late ? 1 : 0 });
   } catch (error) {
     if (isUniqueConflict(error)) return json({ error: "같은 날짜와 사유의 출결이 이미 있어요." }, 409);
     console.error("Member attendance edit failed", error); return json({ error: "수정하지 못했어요." }, 503);
