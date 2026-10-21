@@ -95,5 +95,22 @@ export async function PATCH(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  return adminDelete(request);
+  const auth = await requireActor(request); if (auth.error) return auth.error;
+  if (auth.actor.role === "admin") return adminDelete(request);
+  let input: { id?: unknown; scope?: unknown } | null;
+  try { input = await request.json() as typeof input; } catch { return json({ error: "삭제할 내역을 확인해 주세요." }, 400); }
+  if (typeof input?.id !== "string" || !/^[0-9a-f-]{36}$/.test(input.id)) return json({ error: "삭제할 내역을 확인해 주세요." }, 400);
+  const owned = or(eq(attendance.ownerId, auth.actor.id), and(isNull(attendance.ownerId), inArray(attendance.name, nameAliases(auth.actor.name))));
+  try {
+    const db = getDb();
+    const [existing] = await db.select({ createdAt: attendance.createdAt }).from(attendance).where(and(eq(attendance.id, input.id), owned)).limit(1);
+    if (!existing) return json({ error: "본인의 출결만 삭제할 수 있어요." }, 403);
+    const rows = await db.select({ id: attendance.id, adminRecord: attendance.adminRecord, fineStatus: fines.status }).from(attendance).leftJoin(fines, eq(attendance.id, fines.attendanceId)).where(input.scope === "group" ? and(eq(attendance.createdAt, existing.createdAt), owned) : eq(attendance.id, input.id));
+    // 무단 records are the evidence for a fine; only admins remove them.
+    if (rows.some(row => row.adminRecord === 1 || (!!row.fineStatus && row.fineStatus !== "waived"))) return json({ error: "무단 출결은 삭제할 수 없어요. 관리자에게 요청해 주세요." }, 403);
+    const ids = rows.map(row => row.id);
+    const [, removed] = await db.batch([db.delete(fines).where(inArray(fines.attendanceId, ids)), db.delete(attendance).where(and(inArray(attendance.id, ids), owned)).returning()]);
+    if (!removed.length) return json({ error: "이미 삭제된 내역이에요." }, 404);
+    return json({ deleted: true, count: removed.length });
+  } catch (error) { console.error("Member attendance delete failed", error); return json({ error: "삭제하지 못했어요. 다시 시도해 주세요." }, 503); }
 }

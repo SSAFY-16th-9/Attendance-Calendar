@@ -93,17 +93,23 @@ export async function PATCH(request: Request) {
 export async function DELETE(request: Request) {
   const denied = await requireAdmin(request);
   if (denied) return denied;
-  let input: { id?: unknown } | null;
+  let input: { id?: unknown; scope?: unknown } | null;
   try { input = await request.json() as typeof input; } catch { return privateJson({ error: "삭제할 내역을 확인해 주세요." }, 400); }
   if (typeof input?.id !== "string" || !/^[0-9a-f-]{36}$/.test(input.id)) return privateJson({ error: "삭제할 내역을 확인해 주세요." }, 400);
   try {
-    // Fines belong to their attendance record, so both are removed together.
     const db = getDb();
+    let ids = [input.id];
+    if (input.scope === "group") {
+      const [base] = await db.select({ name: attendance.name, createdAt: attendance.createdAt }).from(attendance).where(eq(attendance.id, input.id)).limit(1);
+      if (!base) return privateJson({ error: "이미 삭제된 내역이에요." }, 404);
+      ids = (await db.select({ id: attendance.id }).from(attendance).where(and(eq(attendance.createdAt, base.createdAt), inArray(attendance.name, nameAliases(base.name))))).map(row => row.id);
+    }
+    // Fines belong to their attendance record, so both are removed together.
     const [, removed] = await db.batch([
-      db.delete(fines).where(eq(fines.attendanceId, input.id)),
-      db.delete(attendance).where(eq(attendance.id, input.id)).returning(),
+      db.delete(fines).where(inArray(fines.attendanceId, ids)),
+      db.delete(attendance).where(inArray(attendance.id, ids)).returning(),
     ]);
     if (!removed.length) return privateJson({ error: "이미 삭제된 내역이에요." }, 404);
-    return privateJson({ deleted: true });
+    return privateJson({ deleted: true, count: removed.length });
   } catch (error) { console.error("Admin delete failed", error); return privateJson({ error: "삭제하지 못했어요. 다시 시도해 주세요." }, 503); }
 }
