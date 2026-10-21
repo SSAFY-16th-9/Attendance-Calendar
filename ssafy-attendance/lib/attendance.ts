@@ -12,6 +12,11 @@ export type AttendanceType = typeof TYPES[number];
 export type AttendanceEntry = { id: string; date: string; name: string; type: AttendanceType; reason: string; createdAt: string; ownerId?: string | null; adminRecord?: number; pending?: number; unnotified?: boolean; fineId?: string | null; fineStatus?: string | null };
 
 // A person can have at most one attendance record per day; later changes go through editing.
+// 무단: an admin-registered 무단 record, or one with a fine that is not waived.
+export const isUnnotified = (row: { adminRecord?: number | null; fineStatus?: string | null }) => row.adminRecord === 1 || (!!row.fineStatus && row.fineStatus !== "waived");
+// CSS classes for a record's badge/chip: its type colour, or 무단 red; 미정 adds a dashed outline.
+export const typeClass = (type: string) => `type-${TYPES.indexOf(type as AttendanceType)}`;
+export const statusClass = (entry: { type: string; unnotified?: boolean; pending?: number }) => entry.unnotified ? "unnotified" : `${typeClass(entry.type)}${entry.pending ? " pending" : ""}`;
 // Label prefix shared by the calendar, day list and popup.
 export const statusPrefix = (entry: { unnotified?: boolean; pending?: number }) => entry.unnotified ? "무단 · " : entry.pending ? "미정 · " : "";
 export const PENDING_FINE_MESSAGE = "미정 출결에는 벌금을 부과할 수 없어요. 확정된 뒤 부과해 주세요.";

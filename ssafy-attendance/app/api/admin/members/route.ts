@@ -1,21 +1,18 @@
-import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, eq, inArray, or, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { attendance, fines, members } from "@/db/schema";
 import { adminConfig, isSuperAdmin, privateJson, requireAdmin } from "@/lib/admin-auth";
 import { passwordDigest } from "@/lib/admin-session";
 import { isMemberName, isMemberUsername, nameAliases } from "@/lib/attendance";
+import { isUniqueConflict, ownedBy } from "@/lib/records";
 
 export const dynamic = "force-dynamic";
 const NAME_RULE = "이름은 한글·영문 1~20자로 입력해 주세요.";
 const USERNAME_RULE = "아이디는 영문·숫자·._- 3~40자로 입력해 주세요.";
 const CORE_ONLY = "관리자 계정은 핵심 관리자(admin)만 변경할 수 있어요.";
-// Drizzle wraps D1 errors, so look through the cause chain for the UNIQUE failure.
-const isConflict = (error: unknown): boolean => !!error && (/unique constraint/i.test(String(error)) || isConflict((error as { cause?: unknown }).cause));
 const reserved = (username: string) => username === adminConfig()?.username;
 // New members (and members still on their first password) use their username as the initial password.
 const initialPassword = async (username: string) => { const salt = crypto.randomUUID(); return { passwordSalt: salt, passwordHash: await passwordDigest(username, salt) }; };
-// A member's records: owned rows, plus older rows saved before owner_id existed.
-const ownedBy = (id: string, name: string) => or(eq(attendance.ownerId, id), and(isNull(attendance.ownerId), inArray(attendance.name, nameAliases(name))));
 
 export async function GET(request: Request) {
   const denied = await requireAdmin(request); if (denied) return denied;
@@ -37,7 +34,7 @@ export async function POST(request: Request) {
     await getDb().insert(members).values({ id: crypto.randomUUID(), username, name, ...await initialPassword(username), active: 1, mustChangePassword: 1, sessionVersion: 0, createdAt: now, updatedAt: now });
     return privateJson({ created: true }, 201);
   } catch (error) {
-    if (isConflict(error)) return privateJson({ error: "같은 이름이나 아이디가 이미 있어요." }, 409);
+    if (isUniqueConflict(error)) return privateJson({ error: "같은 이름이나 아이디가 이미 있어요." }, 409);
     console.error("Member create failed", error); return privateJson({ error: "회원을 추가하지 못했어요." }, 503);
   }
 }
@@ -96,7 +93,7 @@ export async function PATCH(request: Request) {
     if (!rows.length) return privateJson({ error: "회원 상태가 바뀌었어요. 새로고침 후 다시 시도해 주세요." }, 409);
     return privateJson({ updated: true });
   } catch (error) {
-    if (isConflict(error)) return privateJson({ error: "같은 이름이나 아이디가 이미 있어요." }, 409);
+    if (isUniqueConflict(error)) return privateJson({ error: "같은 이름이나 아이디가 이미 있어요." }, 409);
     console.error("Member update failed", error); return privateJson({ error: "회원정보를 변경하지 못했어요." }, 503);
   }
 }

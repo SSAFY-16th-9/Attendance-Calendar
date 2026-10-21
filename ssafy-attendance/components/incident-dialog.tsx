@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Check, Info, X } from "lucide-react";
 import { koreaToday, TYPES } from "@/lib/attendance";
 export default function IncidentDialog({ onSaved }: { onSaved: () => void }) {

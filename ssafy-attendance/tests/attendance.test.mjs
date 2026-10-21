@@ -93,3 +93,15 @@ test('roster names and usernames follow the admin form rules', async () => {
   for (const username of ['joyjhm', 'coasterrrrr', 'a.b_c-1']) assert.equal(isMemberUsername(username), true, username);
   for (const username of ['ab', 'with space', '한글', 'x'.repeat(41)]) assert.equal(isMemberUsername(username), false, username);
 });
+
+test('무단 detection and display classes are shared by the API and the UI', async () => {
+  const { isUnnotified, statusClass, typeClass } = await import('../lib/attendance.ts');
+  assert.equal(isUnnotified({ adminRecord: 1, fineStatus: null }), true);
+  assert.equal(isUnnotified({ adminRecord: 0, fineStatus: 'unpaid' }), true);
+  assert.equal(isUnnotified({ adminRecord: 0, fineStatus: 'waived' }), false);
+  assert.equal(isUnnotified({ adminRecord: 0, fineStatus: null }), false);
+  assert.equal(typeClass('공가'), 'type-0');
+  assert.equal(statusClass({ type: '사유지각', unnotified: true, pending: 1 }), 'unnotified');
+  assert.equal(statusClass({ type: '사유지각', pending: 1 }), 'type-1 pending');
+  assert.equal(statusClass({ type: '사유지각' }), 'type-1');
+});

@@ -1,4 +1,4 @@
-import { and, eq, like, sql } from "drizzle-orm";
+import { and, like, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { fines, members } from "@/db/schema";
 import { canonicalName } from "@/lib/attendance";

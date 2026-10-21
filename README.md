@@ -102,7 +102,7 @@ Workers & Pages → Deployments에서 **Ready**가 되면 반영된 것입니다
 ssafy-attendance/
 ├─ app/                 # 화면(/, /admin/*, /fines, /login, /account)과 API(app/api/*)
 ├─ components/          # 등록·수정 창, 상세 팝업, 벌금 화면
-├─ lib/                 # 출결 규칙(attendance.ts), 권한, 벌금
+├─ lib/                 # 출결 규칙(attendance.ts), 공통 DB 조회(records.ts), 권한, 벌금
 ├─ db/schema.ts         # DB 구조
 ├─ drizzle/             # 마이그레이션
 ├─ scripts/             # 운영 D1 Console용 SQL, 계정 시드

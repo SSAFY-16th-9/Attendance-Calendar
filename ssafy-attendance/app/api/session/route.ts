@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { members } from "@/db/schema";
 import { adminConfig, consumeLoginAttempt, privateJson, sameOrigin, sessionCookie } from "@/lib/admin-auth";

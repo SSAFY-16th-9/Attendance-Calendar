@@ -1,18 +1,14 @@
-import { and, eq, inArray, like, isNull, ne, or } from "drizzle-orm";
+import { and, eq, inArray, like, ne } from "drizzle-orm";
 import { getDb } from "@/db";
 import { attendance, fines } from "@/db/schema";
-import { DAILY_LIMIT_MESSAGE, takenDatesMessage, validateEntries, canonicalName, nameAliases, validateEntry } from "@/lib/attendance";
+import { canonicalName, DAILY_LIMIT_MESSAGE, isUnnotified, nameAliases, takenDatesMessage, validateEntries, validateEntry } from "@/lib/attendance";
+import { privateJson as json, sameOrigin } from "@/lib/admin-auth";
+import { isUniqueConflict, ownedBy, takenDates } from "@/lib/records";
 import { DELETE as adminDelete } from "@/app/api/admin/attendance/route";
 import { getActor, requireActor } from "@/lib/site-auth";
 import { syncFineWithAttendance } from "@/lib/fine-sync";
 
 export const dynamic = "force-dynamic";
-const json = (data: unknown, status = 200) => Response.json(data, { status, headers: { "Cache-Control": "no-store" } });
-
-function isSameOrigin(request: Request) {
-  const origin = request.headers.get("origin");
-  return !origin || origin === new URL(request.url).origin;
-}
 
 export async function GET(request: Request) {
   const actor = await getActor(request);
@@ -21,7 +17,7 @@ export async function GET(request: Request) {
   if (!month || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return json({ error: "조회할 달을 확인해 주세요." }, 400);
   try {
     const entries = await getDb().select({ attendance, fineId: fines.id, fineStatus: fines.status }).from(attendance).leftJoin(fines, eq(attendance.id, fines.attendanceId)).where(like(attendance.date, `${month}-%`)).orderBy(attendance.date, attendance.name, attendance.type);
-    const shaped = entries.map(row => ({ ...row.attendance, name: canonicalName(row.attendance.name), fineId: row.fineId, fineStatus: row.fineStatus, unnotified: row.attendance.adminRecord === 1 || !!row.fineId && row.fineStatus !== "waived" }));
+    const shaped = entries.map(row => ({ ...row.attendance, name: canonicalName(row.attendance.name), fineId: row.fineId, fineStatus: row.fineStatus, unnotified: isUnnotified({ adminRecord: row.attendance.adminRecord, fineStatus: row.fineStatus }) }));
     // Logged-out viewers see the calendar with reasons; fine and owner details need a login.
     return json({ entries: actor ? shaped : shaped.map(({ id, date, name, type, reason, createdAt, pending, unnotified }) => ({ id, date, name, type, reason, createdAt, pending, unnotified })) });
   } catch (error) {
@@ -33,7 +29,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const auth = await requireActor(request); if (auth.error) return auth.error;
   if (auth.actor.role === "admin") return json({ error: "관리자는 관리자 화면에서 출결을 등록해 주세요." }, 403);
-  if (!isSameOrigin(request)) return json({ error: "이 페이지에서 다시 등록해 주세요." }, 403);
+  if (!sameOrigin(request)) return json({ error: "이 페이지에서 다시 등록해 주세요." }, 403);
   if (Number(request.headers.get("content-length") || 0) > 10000) return json({ error: "입력 내용이 너무 길어요." }, 413);
   let input: unknown;
   try { input = await request.json(); } catch { return json({ error: "입력 내용을 확인해 주세요." }, 400); }
@@ -43,8 +39,8 @@ export async function POST(request: Request) {
   if (typeof valid === "string") return json({ error: valid }, 400);
   try {
     const db = getDb(); const now = new Date().toISOString();
-    const taken = await db.select({ date: attendance.date }).from(attendance).where(and(inArray(attendance.date, valid.map(entry => entry.date)), inArray(attendance.name, nameAliases(auth.actor.name))));
-    if (taken.length) return json({ error: takenDatesMessage([...new Set(taken.map(row => row.date))].sort()) }, 409);
+    const taken = await takenDates(db, valid.map(entry => entry.date), auth.actor.name);
+    if (taken.length) return json({ error: takenDatesMessage(taken) }, 409);
     // One multi-row insert: every date is saved, or none is.
     const saved = await db.insert(attendance).values(valid.map(entry => ({ ...entry, id: crypto.randomUUID(), createdAt: now, ownerId: auth.actor.id, adminRecord: 0 }))).returning();
     return json({ entry: saved[0], entries: saved }, 201);
@@ -63,19 +59,19 @@ export async function PATCH(request: Request) {
   if (input.name && input.name !== auth.actor.name) return json({ error: "본인의 출결만 수정할 수 있어요." }, 403);
   const valid = validateEntry({ ...input, name: auth.actor.name });
   if (typeof valid === "string") return json({ error: valid }, 400);
-  const owned = or(eq(attendance.ownerId, auth.actor.id), and(isNull(attendance.ownerId), inArray(attendance.name, nameAliases(auth.actor.name))));
+  const owned = ownedBy(auth.actor.id, auth.actor.name);
   const ownership = and(eq(attendance.id, input.id), owned);
   try {
     const db = getDb();
     const [existing] = await db.select({ id: attendance.id, date: attendance.date, createdAt: attendance.createdAt, adminRecord: attendance.adminRecord, fineStatus: fines.status }).from(attendance).leftJoin(fines, eq(attendance.id, fines.attendanceId)).where(ownership).limit(1);
     if (!existing) return json({ error: "본인의 출결만 수정할 수 있어요." }, 403);
     // Members may change the type and reason of a 무단 record, but not its date; the 무단 mark and fine stay.
-    const unnotified = existing.adminRecord === 1 || (!!existing.fineStatus && existing.fineStatus !== "waived");
+    const unnotified = isUnnotified(existing);
     const { pending, ...fields } = valid;
     if (input.scope === "group") {
       // Records registered together get the same type, reason and 미정; each keeps its own date.
       const group = await db.select({ id: attendance.id, adminRecord: attendance.adminRecord, fineStatus: fines.status }).from(attendance).leftJoin(fines, eq(attendance.id, fines.attendanceId)).where(and(eq(attendance.createdAt, existing.createdAt), owned));
-      if (valid.pending && group.some(row => row.adminRecord === 1 || (!!row.fineStatus && row.fineStatus !== "waived"))) return json({ error: "무단 출결이 포함되어 있어 미정으로 바꿀 수 없어요." }, 403);
+      if (valid.pending && group.some(isUnnotified)) return json({ error: "무단 출결이 포함되어 있어 미정으로 바꿀 수 없어요." }, 403);
       const ids = group.map(row => row.id);
       const [updated] = await db.batch([db.update(attendance).set({ type: valid.type, reason: valid.reason, ...(input.pending === undefined ? {} : { pending }), ownerId: auth.actor.id }).where(and(inArray(attendance.id, ids), owned)).returning(), ...ids.map(id => syncFineWithAttendance(db, id))]);
       if (!updated.length) return json({ error: "출결 상태가 바뀌었어요. 새로고침해 주세요." }, 409);
@@ -89,7 +85,7 @@ export async function PATCH(request: Request) {
     if (!updated.length) return json({ error: "출결 상태가 바뀌었어요. 새로고침해 주세요." }, 409);
     return json({ entry: updated[0] });
   } catch (error) {
-    if (/unique constraint/i.test(String(error))) return json({ error: "같은 날짜와 사유의 출결이 이미 있어요." }, 409);
+    if (isUniqueConflict(error)) return json({ error: "같은 날짜와 사유의 출결이 이미 있어요." }, 409);
     console.error("Member attendance edit failed", error); return json({ error: "수정하지 못했어요." }, 503);
   }
 }
@@ -100,14 +96,14 @@ export async function DELETE(request: Request) {
   let input: { id?: unknown; scope?: unknown } | null;
   try { input = await request.json() as typeof input; } catch { return json({ error: "삭제할 내역을 확인해 주세요." }, 400); }
   if (typeof input?.id !== "string" || !/^[0-9a-f-]{36}$/.test(input.id)) return json({ error: "삭제할 내역을 확인해 주세요." }, 400);
-  const owned = or(eq(attendance.ownerId, auth.actor.id), and(isNull(attendance.ownerId), inArray(attendance.name, nameAliases(auth.actor.name))));
+  const owned = ownedBy(auth.actor.id, auth.actor.name);
   try {
     const db = getDb();
     const [existing] = await db.select({ createdAt: attendance.createdAt }).from(attendance).where(and(eq(attendance.id, input.id), owned)).limit(1);
     if (!existing) return json({ error: "본인의 출결만 삭제할 수 있어요." }, 403);
     const rows = await db.select({ id: attendance.id, adminRecord: attendance.adminRecord, fineStatus: fines.status }).from(attendance).leftJoin(fines, eq(attendance.id, fines.attendanceId)).where(input.scope === "group" ? and(eq(attendance.createdAt, existing.createdAt), owned) : eq(attendance.id, input.id));
     // 무단 records are the evidence for a fine; only admins remove them.
-    if (rows.some(row => row.adminRecord === 1 || (!!row.fineStatus && row.fineStatus !== "waived"))) return json({ error: "무단 출결은 삭제할 수 없어요. 관리자에게 요청해 주세요." }, 403);
+    if (rows.some(isUnnotified)) return json({ error: "무단 출결은 삭제할 수 없어요. 관리자에게 요청해 주세요." }, 403);
     const ids = rows.map(row => row.id);
     const [, removed] = await db.batch([db.delete(fines).where(inArray(fines.attendanceId, ids)), db.delete(attendance).where(and(inArray(attendance.id, ids), owned)).returning()]);
     if (!removed.length) return json({ error: "이미 삭제된 내역이에요." }, 404);
