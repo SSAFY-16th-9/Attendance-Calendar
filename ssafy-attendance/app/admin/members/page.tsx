@@ -1,8 +1,9 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Check, Info, KeyRound, Layers2, Plus, Search, ShieldCheck, X } from "lucide-react";
+import { Check, Info, Layers2, Plus, Search, ShieldCheck, X } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import CohortBar from "@/components/cohort-bar";
+import AdminNav from "@/components/admin-nav";
 import { useClassInfo } from "@/components/use-roster";
 type Member = { id: string; name: string; username: string; active: number; mustChangePassword: number; sessionVersion: number; isAdmin: number; updatedAt: string };
 type ActionType = "add" | "rename" | "username" | "reset" | "activate" | "deactivate" | "grantAdmin" | "revokeAdmin" | "delete";
@@ -48,8 +49,8 @@ export default function Members() {
   const lockedAdmin = (member: Member) => member.isAdmin === 1 && !superAdmin;
   const visible = entries.filter(m => m.name.includes(query.trim()) || m.username.includes(query.trim()));
   const danger = action?.type === "delete" || action?.type === "deactivate";
-  return <div className="admin-app"><header className="admin-topbar"><a className="brand" href="/"><span className="brand-symbol"><Layers2 size={24} /></span><span>출결 모아<span className="brand-caption">SSAFY {cls.name}</span></span></a><a className="back-calendar" href="/admin">출결 관리</a></header><main className="admin-main">
-    <section className="page-heading"><div><div className="eyebrow"><ShieldCheck size={14} /> ADMIN WORKSPACE</div><h1>회원 관리<span className="heading-dot">.</span></h1><p>회원은 ‘기수·가입 코드’에서 만든 가입 코드로 직접 가입해요. 여기서는 명단과 계정, 관리자 권한을 관리하세요.</p></div><div className="admin-heading-actions">{user?.role === "admin" && <><a className="secondary-button" href="/admin/cohorts"><KeyRound size={16} />기수·가입 코드</a><button className="primary-button" onClick={() => setAction({ type: "add" })}><Plus size={16} />인원 추가</button></>}<a className="secondary-button" href="/admin/fines">벌금 관리</a></div></section>
+  return <div className="admin-app"><header className="admin-topbar"><a className="brand" href="/"><span className="brand-symbol"><Layers2 size={24} /></span><span>출결 모아<span className="brand-caption">SSAFY {cls.name}</span></span></a><AdminNav current="/admin/members" /></header><main className="admin-main">
+    <section className="page-heading"><div><div className="eyebrow"><ShieldCheck size={14} /> ADMIN WORKSPACE</div><h1>회원 관리<span className="heading-dot">.</span></h1><p>회원은 ‘기수 관리’에서 만든 가입 코드로 직접 가입해요. 여기서는 명단과 계정, 관리자 권한을 관리하세요.</p></div><div className="admin-heading-actions">{user?.role === "admin" && <button className="primary-button" onClick={() => setAction({ type: "add" })}><Plus size={16} />인원 추가</button>}</div></section>
     {loading ? <p>관리자 권한을 확인하고 있어요.</p> : user?.role !== "admin" ? <div className="fine-login-needed"><h2>관리자만 이용할 수 있어요.</h2><a className="primary-button" href="/login">관리자 로그인</a></div> : <><CohortBar /><section className="admin-records"><div className="admin-table-heading"><div><h2>{cls.name || "우리 반"} 명단 · {entries.length}명</h2><p>{superAdmin ? "핵심 관리자로 로그인했어요. 회원에게 관리자 권한을 주거나 뺄 수 있어요." : "하위 관리자로 로그인했어요. 다른 관리자 계정과 관리자 권한은 핵심 관리자만 바꿀 수 있어요."}</p></div><button className="secondary-button" onClick={load}>새로고침</button></div>
       <div className="admin-filters"><label className="calendar-search"><Search size={16} /><input aria-label="회원 검색" placeholder="이름 또는 아이디" value={query} onChange={e => setQuery(e.target.value)} /></label></div>
       {error && !action && <p className="error-banner" role="alert">{error}</p>}{notice && <p className="member-notice" role="status"><Check size={16} />{notice}</p>}

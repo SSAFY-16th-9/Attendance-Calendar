@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Check, Copy, Eye, EyeOff, Info, KeyRound, Layers2, Plus, RotateCcw, ShieldCheck, Trash2 } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { AdminCohort, AdminCohorts, loadAdminCohorts } from "@/components/cohort-bar";
+import AdminNav from "@/components/admin-nav";
 
 type Action = "select" | "visibility" | "newCode" | "codeOff" | "delete" | "restore";
 const NOTICES: Record<Action, string> = { select: "", visibility: "공개 설정을 바꿨어요.", newCode: "새 가입 코드를 만들었어요. 이전 코드는 더 이상 쓸 수 없어요.", codeOff: "가입 코드를 껐어요. 이제 이 기수로 가입할 수 없어요.", delete: "기수를 삭제했어요. 기록은 남아 있고 언제든 복구할 수 있어요.", restore: "기수를 복구했어요." };
@@ -33,8 +34,8 @@ export default function CohortsPage() {
   async function copy(code: string) { try { await navigator.clipboard.writeText(code); setNotice(`가입 코드 ${code}를 복사했어요.`); } catch { setNotice(`가입 코드: ${code}`); } }
 
   const live = data?.cohorts.filter(cohort => !cohort.deletedAt) ?? []; const deleted = data?.cohorts.filter(cohort => cohort.deletedAt) ?? [];
-  return <div className="admin-app"><header className="admin-topbar"><a className="brand" href="/"><span className="brand-symbol"><Layers2 size={24} /></span><span>출결 모아<span className="brand-caption">기수 관리</span></span></a><a className="back-calendar" href="/admin/members">회원 관리</a></header><main className="admin-main">
-    <section className="page-heading"><div><div className="eyebrow"><ShieldCheck size={14} /> ADMIN WORKSPACE</div><h1>기수·가입 코드<span className="heading-dot">.</span></h1><p>기수마다 가입 코드를 만들어 전달하면, 회원이 회원가입 화면에서 코드를 입력해 그 기수로 직접 가입해요.</p></div></section>
+  return <div className="admin-app"><header className="admin-topbar"><a className="brand" href="/"><span className="brand-symbol"><Layers2 size={24} /></span><span>출결 모아<span className="brand-caption">기수 관리</span></span></a><AdminNav current="/admin/cohorts" /></header><main className="admin-main">
+    <section className="page-heading"><div><div className="eyebrow"><ShieldCheck size={14} /> ADMIN WORKSPACE</div><h1>기수 관리<span className="heading-dot">.</span></h1><p>기수의 공개 여부와 삭제를 관리하고, 기수마다 가입 코드를 만들어 전달하면, 회원이 회원가입 화면에서 코드를 입력해 그 기수로 직접 가입해요.</p></div></section>
     {loading ? <p>관리자 권한을 확인하고 있어요.</p> : user?.role !== "admin" ? <div className="fine-login-needed"><h2>관리자만 이용할 수 있어요.</h2><a className="primary-button" href="/login">관리자 로그인</a></div> : <>
       {data?.superAdmin && <form className="cohort-bar cohort-add" onSubmit={e => { e.preventDefault(); send("POST", { generation: Number(generation), classNo: Number(classNo) }, "기수를 추가했어요. 비공개로 시작하고 가입 코드도 만들어졌어요."); setGeneration(""); setClassNo(""); }}>
         <strong>새 기수</strong>

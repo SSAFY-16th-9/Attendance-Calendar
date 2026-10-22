@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { GraduationCap, Info, KeyRound } from "lucide-react";
+import { GraduationCap, Info } from "lucide-react";
 export type AdminCohort = { id: string; name: string; visibility: "public" | "private"; joinCode: string | null; deletedAt: string | null; members: number };
 export type AdminCohorts = { cohorts: AdminCohort[]; selected: string; superAdmin: boolean };
 export const loadAdminCohorts = () => fetch("/api/admin/cohorts", { cache: "no-store" }).then(r => r.ok ? r.json() as Promise<AdminCohorts> : null);
@@ -26,7 +26,6 @@ export default function CohortBar() {
         ? <select aria-label="관리할 기수" value={data.selected} disabled={busy} onChange={e => select(e.target.value)}>{live.map(cohort => <option key={cohort.id} value={cohort.id}>{cohort.name} · {cohort.members}명 · {cohort.visibility === "public" ? "공개" : "비공개"}</option>)}</select>
         : <strong>{selected?.name ?? "없음"}</strong>}
       {selected && <span className={`visibility-badge ${selected.visibility}`}>{selected.visibility === "public" ? "공개" : "비공개"}</span>}
-      <a className="secondary-button cohort-manage-link" href="/admin/cohorts"><KeyRound size={14} />기수·가입 코드</a>
     </div>
     {error && <p className="form-error" role="alert"><Info size={15} />{error}</p>}
   </section>;
