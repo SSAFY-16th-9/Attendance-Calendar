@@ -199,6 +199,6 @@ ssafy-attendance/
 ├─ lib/                 # 출결 규칙(attendance.ts), 공통 DB 조회(records.ts), 권한, 벌금
 ├─ db/schema.ts         # DB 구조
 ├─ drizzle/             # 마이그레이션
-├─ scripts/             # 최종 DB 구조 SQL, 16기 9반 계정 시드
+├─ scripts/             # 최종 DB 구조 SQL(schema.sql), 빌드 보조 스크립트
 └─ tests/               # 자동 테스트
 ```
