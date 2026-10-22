@@ -9,6 +9,7 @@
 | 저장소 | [SSAFY-16th-9/Attendance-Calendar](https://github.com/SSAFY-16th-9/Attendance-Calendar) |
 
 > 변경 이력은 **[CHANGELOG.md](CHANGELOG.md)** 에 기록합니다.
+> 클론해서 **따로 배포**하려면 **[DEPLOY.md](DEPLOY.md)** 를 보세요(필요한 비밀값과 바꿀 설정).
 
 ---
 
