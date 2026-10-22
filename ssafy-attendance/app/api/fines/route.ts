@@ -1,9 +1,10 @@
-import { and, like, sql } from "drizzle-orm";
+import { and, eq, like, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { fines, members } from "@/db/schema";
 import { canonicalName } from "@/lib/attendance";
 import { Fine, FINE_STATUSES, summarizeFines, summarizePeople } from "@/lib/fines";
 import { requireActor } from "@/lib/site-auth";
+import { cohortFor } from "@/lib/cohort";
 
 export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
@@ -16,9 +17,10 @@ export async function GET(request: Request) {
   const json = (data: unknown, code = 200) => Response.json(data, { status: code, headers: { "Cache-Control": "no-store" } });
   if (month && !/^\d{4}-(0[1-9]|1[0-2])$/.test(month) || name.length > 50 || status && !FINE_STATUSES.includes(status as typeof FINE_STATUSES[number]) || !Number.isSafeInteger(page) || page < 1 || page > 100000) return json({ error: "조회 조건을 확인해 주세요." }, 400);
   try {
+    const cohort = await cohortFor(request, auth.actor);
     const canonical = sql<string>`CASE WHEN ${fines.name} = '이주연' THEN '이주언' ELSE ${fines.name} END`;
-    const rows = await getDb().select().from(fines).where(and(month ? like(fines.date, `${month}-%`) : undefined, name ? sql`instr(${canonical}, ${name}) > 0` : undefined)).orderBy(sql`${fines.date} desc`, fines.name, fines.id);
-    const roster = await getDb().select({ name: members.name }).from(members).orderBy(members.name);
+    const rows = await getDb().select().from(fines).where(and(eq(fines.cohort, cohort), month ? like(fines.date, `${month}-%`) : undefined, name ? sql`instr(${canonical}, ${name}) > 0` : undefined)).orderBy(sql`${fines.date} desc`, fines.name, fines.id);
+    const roster = await getDb().select({ name: members.name }).from(members).where(eq(members.cohort, cohort)).orderBy(members.name);
     const all = rows.map(entry => ({ ...entry, name: canonicalName(entry.name) })) as Fine[];
     const filtered = all.filter(entry => !status || entry.status === status);
     const pageSize = 50;

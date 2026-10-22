@@ -43,6 +43,13 @@
       "when": 1792487311480,
       "tag": "0005_add_sub_admin",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1792627200000,
+      "tag": "0006_add_cohorts",
+      "breakpoints": true
     }
   ]
 }

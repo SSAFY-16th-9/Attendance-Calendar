@@ -7,6 +7,7 @@ import { autoFine, isUniqueConflict, ownedBy, takenDates } from "@/lib/records";
 import { DELETE as adminDelete } from "@/app/api/admin/attendance/route";
 import { getActor, requireActor } from "@/lib/site-auth";
 import { syncFineWithAttendance } from "@/lib/fine-sync";
+import { cohortFor } from "@/lib/cohort";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,8 @@ export async function GET(request: Request) {
   const month = new URL(request.url).searchParams.get("month");
   if (!month || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return json({ error: "조회할 달을 확인해 주세요." }, 400);
   try {
-    const entries = await getDb().select({ attendance, fineId: fines.id, fineStatus: fines.status }).from(attendance).leftJoin(fines, eq(attendance.id, fines.attendanceId)).where(like(attendance.date, `${month}-%`)).orderBy(attendance.date, attendance.name, attendance.type);
+    const cohort = await cohortFor(request, actor);
+    const entries = await getDb().select({ attendance, fineId: fines.id, fineStatus: fines.status }).from(attendance).leftJoin(fines, eq(attendance.id, fines.attendanceId)).where(and(eq(attendance.cohort, cohort), like(attendance.date, `${month}-%`))).orderBy(attendance.date, attendance.name, attendance.type);
     const shaped = entries.map(row => ({ ...row.attendance, name: canonicalName(row.attendance.name), fineId: row.fineId, fineStatus: row.fineStatus, unnotified: isUnnotified({ adminRecord: row.attendance.adminRecord, fineStatus: row.fineStatus }) }));
     // Logged-out viewers see the calendar with reasons; fine and owner details need a login.
     return json({ entries: actor ? shaped : shaped.map(({ id, date, name, type, reason, createdAt, pending, unnotified }) => ({ id, date, name, type, reason, createdAt, pending, unnotified })) });
@@ -38,11 +40,11 @@ export async function POST(request: Request) {
   const valid = validateEntries(input as Record<string, unknown>, auth.actor.name);
   if (typeof valid === "string") return json({ error: valid }, 400);
   try {
-    const db = getDb(); const now = new Date().toISOString();
-    const taken = await takenDates(db, valid.map(entry => entry.date), auth.actor.name);
+    const db = getDb(); const now = new Date().toISOString(); const cohort = auth.actor.cohort;
+    const taken = await takenDates(db, valid.map(entry => entry.date), auth.actor.name, auth.actor.cohort);
     if (taken.length) return json({ error: takenDatesMessage(taken) }, 409);
     // One batch: every date (and any automatic 무단 fine) is saved, or none is.
-    const rows = valid.map(entry => { const late = isLateRegistration(entry.date); return { ...entry, pending: late ? 0 : entry.pending, id: crypto.randomUUID(), createdAt: now, ownerId: auth.actor.id, adminRecord: 0, late }; });
+    const rows = valid.map(entry => { const late = isLateRegistration(entry.date); return { ...entry, pending: late ? 0 : entry.pending, id: crypto.randomUUID(), createdAt: now, ownerId: auth.actor.id, cohort, adminRecord: 0, late }; });
     const lateIds = rows.filter(row => row.late).map(row => row.id);
     const [saved] = await db.batch([db.insert(attendance).values(rows.map(({ late: _late, ...row }) => row)).returning(), ...rows.filter(row => row.late).map(row => autoFine(db, row, now))]);
     const entries = saved.map(entry => lateIds.includes(entry.id) ? { ...entry, unnotified: true, fineStatus: "unpaid" } : entry);
@@ -62,7 +64,7 @@ export async function PATCH(request: Request) {
   if (input.name && input.name !== auth.actor.name) return json({ error: "본인의 출결만 수정할 수 있어요." }, 403);
   const valid = validateEntry({ ...input, name: auth.actor.name });
   if (typeof valid === "string") return json({ error: valid }, 400);
-  const owned = ownedBy(auth.actor.id, auth.actor.name);
+  const owned = ownedBy(auth.actor.id, auth.actor.name, auth.actor.cohort);
   const ownership = and(eq(attendance.id, input.id), owned);
   try {
     const db = getDb();
@@ -82,11 +84,11 @@ export async function PATCH(request: Request) {
     }
     if (unnotified && valid.pending) return json({ error: "무단 출결은 미정으로 바꿀 수 없어요." }, 403);
     if (unnotified && valid.date !== existing.date) return json({ error: "무단 출결은 날짜를 바꿀 수 없어요. 사유와 상세 이유만 수정할 수 있어요." }, 403);
-    const duplicate = await db.select({ id: attendance.id }).from(attendance).where(and(eq(attendance.date, valid.date), inArray(attendance.name, nameAliases(valid.name)), ne(attendance.id, input.id))).limit(1);
+    const duplicate = await db.select({ id: attendance.id }).from(attendance).where(and(eq(attendance.cohort, auth.actor.cohort), eq(attendance.date, valid.date), inArray(attendance.name, nameAliases(valid.name)), ne(attendance.id, input.id))).limit(1);
     if (duplicate.length) return json({ error: DAILY_LIMIT_MESSAGE }, 409);
     // Moving a record onto a day whose 8 a.m. has passed counts as a late registration.
     const late = valid.date !== existing.date && isLateRegistration(valid.date);
-    const [updated] = await db.batch([db.update(attendance).set({ ...fields, ...(late ? { pending: 0 } : input.pending === undefined ? {} : { pending }), ownerId: auth.actor.id }).where(and(ownership, eq(attendance.date, existing.date))).returning(), syncFineWithAttendance(db, input.id), ...(late ? [autoFine(db, { id: input.id, date: valid.date, name: auth.actor.name, type: valid.type }, new Date().toISOString())] : [])]);
+    const [updated] = await db.batch([db.update(attendance).set({ ...fields, ...(late ? { pending: 0 } : input.pending === undefined ? {} : { pending }), ownerId: auth.actor.id }).where(and(ownership, eq(attendance.date, existing.date))).returning(), syncFineWithAttendance(db, input.id), ...(late ? [autoFine(db, { id: input.id, date: valid.date, name: auth.actor.name, type: valid.type, cohort: auth.actor.cohort }, new Date().toISOString())] : [])]);
     if (!updated.length) return json({ error: "출결 상태가 바뀌었어요. 새로고침해 주세요." }, 409);
     return json({ entry: late ? { ...updated[0], unnotified: true, fineStatus: "unpaid" } : updated[0], lateCount: late ? 1 : 0 });
   } catch (error) {
@@ -101,7 +103,7 @@ export async function DELETE(request: Request) {
   let input: { id?: unknown; scope?: unknown } | null;
   try { input = await request.json() as typeof input; } catch { return json({ error: "삭제할 내역을 확인해 주세요." }, 400); }
   if (typeof input?.id !== "string" || !/^[0-9a-f-]{36}$/.test(input.id)) return json({ error: "삭제할 내역을 확인해 주세요." }, 400);
-  const owned = ownedBy(auth.actor.id, auth.actor.name);
+  const owned = ownedBy(auth.actor.id, auth.actor.name, auth.actor.cohort);
   try {
     const db = getDb();
     const [existing] = await db.select({ createdAt: attendance.createdAt }).from(attendance).where(and(eq(attendance.id, input.id), owned)).limit(1);

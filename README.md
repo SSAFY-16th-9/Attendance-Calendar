@@ -31,7 +31,8 @@
 | 표시 | 무단은 빨간 **"무단 · 사유"**, 미정은 점선 **"미정 · 사유"** |
 | 벌금 | 미리 알리지 않은 출결에 **5,000원**. 관리자가 확인해 부과하거나, **10/22부터는 회원이 당일 오전 8시 이후 본인 등록 시 자동 무단·자동 부과**(관리자 대신 등록은 제외). 출결 수정 시 벌금 내용도 맞춰지고, 출결 삭제 시 벌금도 삭제. 미정에는 부과 불가 |
 | 회원 | 처음 비밀번호 = 아이디, 첫 로그인 때 변경. 자동 로그인(회원 30일·관리자 7일, 끄면 8시간) |
-| 명단 `/admin/members` | 명단 기준은 DB `members` 표. 추가·이름 변경·아이디 변경·비밀번호 초기화·정지·삭제, 관리자 권한 주기/빼기 |
+| 명단 `/admin/members` | 명단 기준은 DB `members` 표. **명단 붙여넣기**(엑셀·시트에서 이름·아이디 복사 → 확인 → 한 번에 추가), 추가·이름 변경·아이디 변경·비밀번호 초기화·정지·삭제, 관리자 권한 주기/빼기 |
+| 기수 | 회원·출결·벌금이 기수(예: `16-9` = 16기 9반)별로 나뉨. 회원은 자기 기수만, 비로그인은 **캘린더 공개 기수**를 봄. 핵심 관리자는 관리자 화면 위 **관리 중인 기수**에서 기수를 바꾸고, 회원 관리에서 새 기수 추가·공개 기수 지정. 아이디는 전체에서, 이름은 기수 안에서만 겹치면 안 됨 |
 
 ## 권한
 
@@ -41,10 +42,11 @@
 | 벌금 현황 보기 | | ✅ | ✅ | ✅ |
 | 본인 출결 등록·수정·삭제 | | ✅ | ✅ | ✅ |
 | 다른 사람 출결·벌금 관리 | | | ✅ | ✅ |
-| 명단·계정 관리 | | | ✅¹ | ✅ |
+| 명단·계정 관리 (자기 기수) | | | ✅¹ | ✅ |
+| 기수 추가·전환, 공개 기수 지정 | | | | ✅ |
 | 관리자 권한 주기·빼기 | | | | ✅ |
 
-¹ 다른 관리자 계정의 아이디·비밀번호·정지·삭제는 핵심 관리자만 가능합니다.
+¹ 하위 관리자는 자기 기수만 관리합니다. 다른 관리자 계정의 아이디·비밀번호·정지·삭제는 핵심 관리자만 가능합니다.
 무단 출결은 본인도 사유·상세 이유만 바꿀 수 있고 날짜 변경·삭제는 관리자만 가능합니다.
 
 ---
@@ -53,12 +55,20 @@
 
 Cloudflare → Storage & databases → D1 → `ssafy-attendance-db` → **Console**
 
-운영 DB는 아래 **최종 구조**로 맞춰져 있습니다. 새 DB를 만들 때는 이 SQL(`ssafy-attendance/scripts/schema.sql`)을 실행한 뒤 계정을 `scripts/seed-members.sql`로 넣습니다. `IF NOT EXISTS`라 다시 실행해도 기존 데이터는 바뀌지 않습니다.
+운영 DB는 아래 **최종 구조**로 맞춥니다. 새 DB를 만들 때는 이 SQL(`ssafy-attendance/scripts/schema.sql`)을 실행하면 첫 기수(16기 9반)까지 만들어지고, 회원은 관리자 화면 **명단 붙여넣기**로 넣습니다. `IF NOT EXISTS`라 다시 실행해도 기존 데이터는 바뀌지 않습니다.
 
 <details>
-<summary>최종 SQL 보기 (표 4개, 인덱스 4개)</summary>
+<summary>최종 SQL 보기 (표 5개, 인덱스 4개)</summary>
 
 ```sql
+CREATE TABLE IF NOT EXISTS `cohorts` (
+  `id` text PRIMARY KEY NOT NULL,
+  `name` text NOT NULL,
+  `is_current` integer DEFAULT 0 NOT NULL,
+  `created_at` text NOT NULL
+);
+INSERT INTO `cohorts` (`id`, `name`, `is_current`, `created_at`) VALUES ('16-9', '16기 9반', 1, '2026-10-22T00:00:00.000Z') ON CONFLICT DO NOTHING;
+
 CREATE TABLE IF NOT EXISTS `attendance` (
   `id` text PRIMARY KEY NOT NULL,
   `date` text NOT NULL,
@@ -68,9 +78,10 @@ CREATE TABLE IF NOT EXISTS `attendance` (
   `created_at` text NOT NULL,
   `owner_id` text,
   `admin_record` integer DEFAULT 0 NOT NULL,
-  `pending` integer DEFAULT 0 NOT NULL
+  `pending` integer DEFAULT 0 NOT NULL,
+  `cohort` text DEFAULT '16-9' NOT NULL
 );
-CREATE UNIQUE INDEX IF NOT EXISTS `attendance_date_name_type_unique` ON `attendance` (`date`, `name`, `type`);
+CREATE UNIQUE INDEX IF NOT EXISTS `attendance_cohort_date_name_type_unique` ON `attendance` (`cohort`, `date`, `name`, `type`);
 
 CREATE TABLE IF NOT EXISTS `fines` (
   `id` text PRIMARY KEY NOT NULL,
@@ -83,7 +94,8 @@ CREATE TABLE IF NOT EXISTS `fines` (
   `paid_at` text,
   `created_at` text NOT NULL,
   `updated_at` text NOT NULL,
-  `revision` integer DEFAULT 0 NOT NULL
+  `revision` integer DEFAULT 0 NOT NULL,
+  `cohort` text DEFAULT '16-9' NOT NULL
 );
 CREATE UNIQUE INDEX IF NOT EXISTS `fines_attendance_unique` ON `fines` (`attendance_id`);
 
@@ -98,10 +110,11 @@ CREATE TABLE IF NOT EXISTS `members` (
   `session_version` integer DEFAULT 0 NOT NULL,
   `is_admin` integer DEFAULT 0 NOT NULL,
   `created_at` text NOT NULL,
-  `updated_at` text NOT NULL
+  `updated_at` text NOT NULL,
+  `cohort` text DEFAULT '16-9' NOT NULL
 );
 CREATE UNIQUE INDEX IF NOT EXISTS `members_username_unique` ON `members` (`username`);
-CREATE UNIQUE INDEX IF NOT EXISTS `members_name_unique` ON `members` (`name`);
+CREATE UNIQUE INDEX IF NOT EXISTS `members_cohort_name_unique` ON `members` (`cohort`, `name`);
 
 CREATE TABLE IF NOT EXISTS `admin_login_attempts` (
   `key` text PRIMARY KEY NOT NULL,
@@ -111,7 +124,31 @@ CREATE TABLE IF NOT EXISTS `admin_login_attempts` (
 ```
 </details>
 
-구조 확인: `PRAGMA table_info(members);` 마지막 쪽에 `is_admin`, `PRAGMA table_info(attendance);`에 `pending`이 보이면 최신입니다.
+<details>
+<summary>기존 운영 DB에 기수 기능 추가 (한 번만, 10/22)</summary>
+
+기존 회원·출결·벌금은 모두 16기 9반(`16-9`)으로 들어갑니다. **이 SQL을 실행한 뒤 푸시**합니다.
+
+```sql
+CREATE TABLE `cohorts` (
+  `id` text PRIMARY KEY NOT NULL,
+  `name` text NOT NULL,
+  `is_current` integer DEFAULT 0 NOT NULL,
+  `created_at` text NOT NULL
+);
+
+INSERT INTO `cohorts` (`id`, `name`, `is_current`, `created_at`) VALUES ('16-9', '16기 9반', 1, '2026-10-22T00:00:00.000Z');
+ALTER TABLE `members` ADD `cohort` text DEFAULT '16-9' NOT NULL;
+ALTER TABLE `attendance` ADD `cohort` text DEFAULT '16-9' NOT NULL;
+ALTER TABLE `fines` ADD `cohort` text DEFAULT '16-9' NOT NULL;
+DROP INDEX `members_name_unique`;
+CREATE UNIQUE INDEX `members_cohort_name_unique` ON `members` (`cohort`,`name`);
+DROP INDEX `attendance_date_name_type_unique`;
+CREATE UNIQUE INDEX `attendance_cohort_date_name_type_unique` ON `attendance` (`cohort`,`date`,`name`,`type`);
+```
+</details>
+
+구조 확인: `SELECT * FROM cohorts;`에 16기 9반이 있고, `PRAGMA table_info(members);`에 `is_admin`·`cohort`가 보이면 최신입니다.
 
 ---
 
@@ -150,6 +187,6 @@ ssafy-attendance/
 ├─ lib/                 # 출결 규칙(attendance.ts), 공통 DB 조회(records.ts), 권한, 벌금
 ├─ db/schema.ts         # DB 구조
 ├─ drizzle/             # 마이그레이션
-├─ scripts/             # 운영 D1 Console용 SQL, 계정 시드
+├─ scripts/             # 최종 DB 구조 SQL, 16기 9반 계정 시드
 └─ tests/               # 자동 테스트
 ```

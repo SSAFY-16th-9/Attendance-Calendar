@@ -1,6 +1,14 @@
--- 출결 모아 운영 DB 최종 구조 (drizzle 0000 ~ 0005 적용 결과와 같음)
--- 새 D1에서 한 번 실행한 뒤, 계정은 scripts/seed-members.sql로 넣습니다.
+-- 출결 모아 운영 DB 최종 구조 (drizzle 0000 ~ 0006 적용 결과와 같음)
+-- 새 D1에서 한 번 실행합니다. 첫 기수(16기 9반)가 함께 만들어지고, 회원은 관리자 화면의 '명단 붙여넣기'로 넣습니다.
 -- IF NOT EXISTS라 이미 있는 표·인덱스는 건너뜁니다(기존 데이터는 바뀌지 않음).
+
+CREATE TABLE IF NOT EXISTS `cohorts` (
+  `id` text PRIMARY KEY NOT NULL,
+  `name` text NOT NULL,
+  `is_current` integer DEFAULT 0 NOT NULL,
+  `created_at` text NOT NULL
+);
+INSERT INTO `cohorts` (`id`, `name`, `is_current`, `created_at`) VALUES ('16-9', '16기 9반', 1, '2026-10-22T00:00:00.000Z') ON CONFLICT DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS `attendance` (
   `id` text PRIMARY KEY NOT NULL,
@@ -11,9 +19,10 @@ CREATE TABLE IF NOT EXISTS `attendance` (
   `created_at` text NOT NULL,
   `owner_id` text,
   `admin_record` integer DEFAULT 0 NOT NULL,
-  `pending` integer DEFAULT 0 NOT NULL
+  `pending` integer DEFAULT 0 NOT NULL,
+  `cohort` text DEFAULT '16-9' NOT NULL
 );
-CREATE UNIQUE INDEX IF NOT EXISTS `attendance_date_name_type_unique` ON `attendance` (`date`, `name`, `type`);
+CREATE UNIQUE INDEX IF NOT EXISTS `attendance_cohort_date_name_type_unique` ON `attendance` (`cohort`, `date`, `name`, `type`);
 
 CREATE TABLE IF NOT EXISTS `fines` (
   `id` text PRIMARY KEY NOT NULL,
@@ -26,7 +35,8 @@ CREATE TABLE IF NOT EXISTS `fines` (
   `paid_at` text,
   `created_at` text NOT NULL,
   `updated_at` text NOT NULL,
-  `revision` integer DEFAULT 0 NOT NULL
+  `revision` integer DEFAULT 0 NOT NULL,
+  `cohort` text DEFAULT '16-9' NOT NULL
 );
 CREATE UNIQUE INDEX IF NOT EXISTS `fines_attendance_unique` ON `fines` (`attendance_id`);
 
@@ -41,10 +51,11 @@ CREATE TABLE IF NOT EXISTS `members` (
   `session_version` integer DEFAULT 0 NOT NULL,
   `is_admin` integer DEFAULT 0 NOT NULL,
   `created_at` text NOT NULL,
-  `updated_at` text NOT NULL
+  `updated_at` text NOT NULL,
+  `cohort` text DEFAULT '16-9' NOT NULL
 );
 CREATE UNIQUE INDEX IF NOT EXISTS `members_username_unique` ON `members` (`username`);
-CREATE UNIQUE INDEX IF NOT EXISTS `members_name_unique` ON `members` (`name`);
+CREATE UNIQUE INDEX IF NOT EXISTS `members_cohort_name_unique` ON `members` (`cohort`, `name`);
 
 CREATE TABLE IF NOT EXISTS `admin_login_attempts` (
   `key` text PRIMARY KEY NOT NULL,

@@ -1,7 +1,10 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Check, Info, Layers2, Plus, Search, ShieldCheck, X } from "lucide-react";
+import { Check, ClipboardList, Info, Layers2, Plus, Search, ShieldCheck, X } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
+import CohortBar from "@/components/cohort-bar";
+import BulkAddDialog from "@/components/bulk-add-dialog";
+import { useClassInfo } from "@/components/use-roster";
 type Member = { id: string; name: string; username: string; active: number; mustChangePassword: number; sessionVersion: number; isAdmin: number; updatedAt: string };
 type ActionType = "add" | "rename" | "username" | "reset" | "activate" | "deactivate" | "grantAdmin" | "revokeAdmin" | "delete";
 const TITLES: Record<ActionType, string> = { add: "인원 추가", rename: "이름 변경", username: "아이디 변경", reset: "비밀번호 초기화", activate: "이용 재개", deactivate: "이용 정지", grantAdmin: "관리자 권한 주기", revokeAdmin: "관리자 권한 빼기", delete: "명단에서 삭제" };
@@ -17,7 +20,7 @@ const DESCRIPTIONS: Record<ActionType, string> = {
   delete: "명단과 로그인 계정이 삭제돼요. 기록을 남기려면 대신 ‘이용 정지’를 사용하세요.",
 };
 export default function Members() {
-  const { user, loading } = useAuth();
+  const { user, loading } = useAuth(); const cls = useClassInfo(); const [bulkOpen, setBulkOpen] = useState(false);
   const [entries, setEntries] = useState<Member[]>([]); const [superAdmin, setSuperAdmin] = useState(false); const [error, setError] = useState(""); const [query, setQuery] = useState("");
   const [action, setAction] = useState<{ member?: Member; type: ActionType } | null>(null);
   const [password, setPassword] = useState(""); const [name, setName] = useState(""); const [username, setUsername] = useState("");
@@ -46,9 +49,9 @@ export default function Members() {
   const lockedAdmin = (member: Member) => member.isAdmin === 1 && !superAdmin;
   const visible = entries.filter(m => m.name.includes(query.trim()) || m.username.includes(query.trim()));
   const danger = action?.type === "delete" || action?.type === "deactivate";
-  return <div className="admin-app"><header className="admin-topbar"><a className="brand" href="/"><span className="brand-symbol"><Layers2 size={24} /></span><span>출결 모아<span className="brand-caption">SSAFY 16기 9반</span></span></a><a className="back-calendar" href="/admin">출결 관리</a></header><main className="admin-main">
-    <section className="page-heading"><div><div className="eyebrow"><ShieldCheck size={14} /> ADMIN WORKSPACE</div><h1>회원 관리<span className="heading-dot">.</span></h1><p>우리 반 명단과 로그인 계정, 관리자 권한을 관리하세요.</p></div><div className="admin-heading-actions">{user?.role === "admin" && <button className="primary-button" onClick={() => setAction({ type: "add" })}><Plus size={16} />인원 추가</button>}<a className="secondary-button" href="/admin/fines">벌금 관리</a></div></section>
-    {loading ? <p>관리자 권한을 확인하고 있어요.</p> : user?.role !== "admin" ? <div className="fine-login-needed"><h2>관리자만 이용할 수 있어요.</h2><a className="primary-button" href="/login">관리자 로그인</a></div> : <section className="admin-records"><div className="admin-table-heading"><div><h2>우리 반 명단 · {entries.length}명</h2><p>{superAdmin ? "핵심 관리자로 로그인했어요. 회원에게 관리자 권한을 주거나 뺄 수 있어요." : "하위 관리자로 로그인했어요. 다른 관리자 계정과 관리자 권한은 핵심 관리자만 바꿀 수 있어요."}</p></div><button className="secondary-button" onClick={load}>새로고침</button></div>
+  return <div className="admin-app"><header className="admin-topbar"><a className="brand" href="/"><span className="brand-symbol"><Layers2 size={24} /></span><span>출결 모아<span className="brand-caption">SSAFY {cls.name}</span></span></a><a className="back-calendar" href="/admin">출결 관리</a></header><main className="admin-main">
+    <section className="page-heading"><div><div className="eyebrow"><ShieldCheck size={14} /> ADMIN WORKSPACE</div><h1>회원 관리<span className="heading-dot">.</span></h1><p>우리 반 명단과 로그인 계정, 관리자 권한을 관리하세요.</p></div><div className="admin-heading-actions">{user?.role === "admin" && <><button className="secondary-button" onClick={() => setBulkOpen(true)}><ClipboardList size={16} />명단 붙여넣기</button><button className="primary-button" onClick={() => setAction({ type: "add" })}><Plus size={16} />인원 추가</button></>}<a className="secondary-button" href="/admin/fines">벌금 관리</a></div></section>
+    {loading ? <p>관리자 권한을 확인하고 있어요.</p> : user?.role !== "admin" ? <div className="fine-login-needed"><h2>관리자만 이용할 수 있어요.</h2><a className="primary-button" href="/login">관리자 로그인</a></div> : <><CohortBar manage /><section className="admin-records"><div className="admin-table-heading"><div><h2>{cls.name || "우리 반"} 명단 · {entries.length}명</h2><p>{superAdmin ? "핵심 관리자로 로그인했어요. 회원에게 관리자 권한을 주거나 뺄 수 있어요." : "하위 관리자로 로그인했어요. 다른 관리자 계정과 관리자 권한은 핵심 관리자만 바꿀 수 있어요."}</p></div><button className="secondary-button" onClick={load}>새로고침</button></div>
       <div className="admin-filters"><label className="calendar-search"><Search size={16} /><input aria-label="회원 검색" placeholder="이름 또는 아이디" value={query} onChange={e => setQuery(e.target.value)} /></label></div>
       {error && !action && <p className="error-banner" role="alert">{error}</p>}{notice && <p className="member-notice" role="status"><Check size={16} />{notice}</p>}
       <div className="admin-table-scroll"><table className="admin-table member-table"><thead><tr><th>이름</th><th>아이디</th><th>권한</th><th>이용 상태</th><th>비밀번호</th><th>관리</th></tr></thead><tbody>{visible.map(member => <tr key={member.id}>
@@ -66,8 +69,9 @@ export default function Members() {
             <button className="member-delete" onClick={() => setAction({ member, type: "delete" })} aria-label={`${member.name} 삭제`}>삭제</button>
           </>}
         </div></td></tr>)}</tbody></table>{!visible.length && <div className="admin-empty"><strong>검색된 회원이 없어요</strong></div>}</div>
-    </section>}
+    </section></>}
   </main>
+  <BulkAddDialog open={bulkOpen} className={cls.name} onClose={() => setBulkOpen(false)} onAdded={(count, failed) => { setNotice(`${count}명을 명단에 추가했어요.${failed ? ` ${failed}명은 추가하지 못했어요.` : ""} 처음 비밀번호는 각자의 아이디와 같아요.`); load(); }} />
   <dialog ref={dialog} className="modal" aria-labelledby="member-action-title" onCancel={e => { if (busy) e.preventDefault(); else setAction(null); }}><form onSubmit={save}>
     <div className="modal-header"><div><h2 id="member-action-title">{action?.member ? `${action.member.name} · ` : ""}{action ? TITLES[action.type] : ""}</h2></div><button className="icon-button" type="button" disabled={busy} onClick={() => setAction(null)} aria-label="회원 관리 창 닫기"><X size={20} /></button></div>
     <p className="modal-description">{action ? DESCRIPTIONS[action.type] : ""}</p>
