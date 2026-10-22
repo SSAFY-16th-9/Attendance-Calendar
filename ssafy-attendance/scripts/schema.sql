@@ -1,14 +1,17 @@
--- 출결 모아 운영 DB 최종 구조 (drizzle 0000 ~ 0006 적용 결과와 같음)
--- 새 D1에서 한 번 실행합니다. 첫 기수(16기 9반)가 함께 만들어지고, 회원은 관리자 화면의 '명단 붙여넣기'로 넣습니다.
+-- 출결 모아 운영 DB 최종 구조 (drizzle 0000 ~ 0007 적용 결과와 같음)
+-- 새 D1에서 한 번 실행합니다. 첫 기수(16기 9반)가 함께 만들어지고, 회원은 관리자가 만든 가입 코드로 직접 가입합니다.
 -- IF NOT EXISTS라 이미 있는 표·인덱스는 건너뜁니다(기존 데이터는 바뀌지 않음).
 
 CREATE TABLE IF NOT EXISTS `cohorts` (
   `id` text PRIMARY KEY NOT NULL,
   `name` text NOT NULL,
-  `is_current` integer DEFAULT 0 NOT NULL,
-  `created_at` text NOT NULL
+  `created_at` text NOT NULL,
+  `visibility` text DEFAULT 'public' NOT NULL,
+  `join_code` text,
+  `deleted_at` text
 );
-INSERT INTO `cohorts` (`id`, `name`, `is_current`, `created_at`) VALUES ('16-9', '16기 9반', 1, '2026-10-22T00:00:00.000Z') ON CONFLICT DO NOTHING;
+CREATE UNIQUE INDEX IF NOT EXISTS `cohorts_join_code_unique` ON `cohorts` (`join_code`);
+INSERT INTO `cohorts` (`id`, `name`, `created_at`) VALUES ('16-9', '16기 9반', '2026-10-22T00:00:00.000Z') ON CONFLICT DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS `attendance` (
   `id` text PRIMARY KEY NOT NULL,

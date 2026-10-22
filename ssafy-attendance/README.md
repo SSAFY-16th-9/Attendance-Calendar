@@ -20,7 +20,8 @@ npm run build        # 빌드
 | 출결 규칙(사유, 하루 1건, 무단·미정, 8시 자동 무단, 정렬) | `lib/attendance.ts` |
 | 공통 DB 조회(본인 기록, 겹치는 날짜, 자동 벌금) | `lib/records.ts` |
 | 기수(어느 기수를 보고 관리하는지) | `lib/cohort.ts`, `components/cohort-bar.tsx` |
-| 명단 붙여넣기 | `components/bulk-add-dialog.tsx`, `lib/roster-paste.ts` |
+| 기수 관리·가입 코드 | `app/admin/cohorts/page.tsx`, `app/api/admin/cohorts/route.ts`, `lib/join-code.ts` |
+| 회원가입 | `app/signup/page.tsx`, `app/api/signup/route.ts`, `lib/member-rules.ts` |
 | 권한(핵심·하위 관리자, 회원 세션) | `lib/admin-auth.ts`, `lib/member-session.ts`, `lib/site-auth.ts` |
 | 벌금 계산·동기화 | `lib/fines.ts`, `lib/fine-sync.ts` |
 | 캘린더 화면 | `app/page.tsx` |

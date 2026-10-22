@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
-import { members } from "@/db/schema";
+import { cohorts, members } from "@/db/schema";
 import { adminConfig, consumeLoginAttempt, privateJson, sameOrigin, sessionCookie } from "@/lib/admin-auth";
 import { ADMIN_REMEMBER_SECONDS, constantTimeEqual, createSession, MEMBER_REMEMBER_SECONDS, passwordDigest, SESSION_SECONDS } from "@/lib/admin-session";
 import { getActor } from "@/lib/site-auth";
@@ -29,9 +29,11 @@ export async function POST(request: Request) {
       response.headers.append("Set-Cookie", memberCookie(request, ""));
       return response;
     }
-    const [member] = await getDb().select().from(members).where(eq(members.username, input.username)).limit(1);
+    const [row] = await getDb().select({ member: members, deletedAt: cohorts.deletedAt }).from(members).leftJoin(cohorts, eq(cohorts.id, members.cohort)).where(eq(members.username, input.username)).limit(1);
+    const member = row?.member;
     const valid = constantTimeEqual(await passwordDigest(input.password, member?.passwordSalt || "invalid-member-placeholder"), member?.passwordHash || "");
     if (!member || member.active !== 1 || !valid) return privateJson({ error: "아이디 또는 비밀번호가 올바르지 않아요." }, 401);
+    if (row.deletedAt) return privateJson({ error: "삭제된 기수의 계정이라 로그인할 수 없어요. 관리자에게 문의해 주세요." }, 403);
     await attempt.reset();
     const response = privateJson({ user: { role: "member" }, next: member.mustChangePassword ? "/account" : "/" });
     const seconds = remember ? MEMBER_REMEMBER_SECONDS : SESSION_SECONDS;

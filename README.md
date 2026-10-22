@@ -31,8 +31,9 @@
 | 표시 | 무단은 빨간 **"무단 · 사유"**, 미정은 점선 **"미정 · 사유"** |
 | 벌금 | 미리 알리지 않은 출결에 **5,000원**. 관리자가 확인해 부과하거나, **10/22부터는 회원이 당일 오전 8시 이후 본인 등록 시 자동 무단·자동 부과**(관리자 대신 등록은 제외). 출결 수정 시 벌금 내용도 맞춰지고, 출결 삭제 시 벌금도 삭제. 미정에는 부과 불가 |
 | 회원 | 처음 비밀번호 = 아이디, 첫 로그인 때 변경. 자동 로그인(회원 30일·관리자 7일, 끄면 8시간) |
-| 명단 `/admin/members` | 명단 기준은 DB `members` 표. **명단 붙여넣기**(엑셀·시트에서 이름·아이디 복사 → 확인 → 한 번에 추가), 추가·이름 변경·아이디 변경·비밀번호 초기화·정지·삭제, 관리자 권한 주기/빼기 |
-| 기수 | 회원·출결·벌금이 기수(예: `16-9` = 16기 9반)별로 나뉨. 회원은 자기 기수만, 비로그인은 **캘린더 공개 기수**를 봄. 핵심 관리자는 관리자 화면 위 **관리 중인 기수**에서 기수를 바꾸고, 회원 관리에서 새 기수 추가·공개 기수 지정. 아이디는 전체에서, 이름은 기수 안에서만 겹치면 안 됨 |
+| 회원가입 `/signup` | 관리자에게 받은 **가입 코드**(8자리)를 입력하면 그 기수로 가입. 이름·아이디·비밀번호를 직접 정하므로 첫 로그인 비밀번호 변경 없음 |
+| 명단 `/admin/members` | 명단 기준은 DB `members` 표. 한 명씩 추가(처음 비밀번호 = 아이디)·이름 변경·아이디 변경·비밀번호 초기화·정지·삭제, 관리자 권한 주기/빼기 |
+| 기수 `/admin/cohorts` | 회원·출결·벌금이 기수(예: `16-9` = 16기 9반)별로 나뉨. 기수마다 **공개/비공개**(공개만 로그인 없이 캘린더 조회, 여러 개면 캘린더에서 골라 봄), **가입 코드** 만들기·새로 만들기·끄기, **삭제/복구**(소프트 삭제: 기록은 남고 그 기수 회원은 로그인 불가). 새 기수는 비공개·가입 코드 있음으로 시작. 회원은 언제나 자기 기수만 봄. 아이디는 전체에서, 이름은 기수 안에서만 겹치면 안 됨 |
 
 ## 권한
 
@@ -43,7 +44,8 @@
 | 본인 출결 등록·수정·삭제 | | ✅ | ✅ | ✅ |
 | 다른 사람 출결·벌금 관리 | | | ✅ | ✅ |
 | 명단·계정 관리 (자기 기수) | | | ✅¹ | ✅ |
-| 기수 추가·전환, 공개 기수 지정 | | | | ✅ |
+| 자기 기수 가입 코드 만들기·끄기 | | | ✅ | ✅ |
+| 기수 추가·전환, 공개/비공개, 삭제·복구 | | | | ✅ |
 | 관리자 권한 주기·빼기 | | | | ✅ |
 
 ¹ 하위 관리자는 자기 기수만 관리합니다. 다른 관리자 계정의 아이디·비밀번호·정지·삭제는 핵심 관리자만 가능합니다.
@@ -55,19 +57,22 @@
 
 Cloudflare → Storage & databases → D1 → `ssafy-attendance-db` → **Console**
 
-운영 DB는 아래 **최종 구조**로 맞춥니다. 새 DB를 만들 때는 이 SQL(`ssafy-attendance/scripts/schema.sql`)을 실행하면 첫 기수(16기 9반)까지 만들어지고, 회원은 관리자 화면 **명단 붙여넣기**로 넣습니다. `IF NOT EXISTS`라 다시 실행해도 기존 데이터는 바뀌지 않습니다.
+운영 DB는 아래 **최종 구조**로 맞춥니다. 새 DB를 만들 때는 이 SQL(`ssafy-attendance/scripts/schema.sql`)을 실행하면 첫 기수(16기 9반)까지 만들어지고, 회원은 관리자가 만든 **가입 코드**로 직접 가입합니다. `IF NOT EXISTS`라 다시 실행해도 기존 데이터는 바뀌지 않습니다.
 
 <details>
-<summary>최종 SQL 보기 (표 5개, 인덱스 4개)</summary>
+<summary>최종 SQL 보기 (표 5개, 인덱스 5개)</summary>
 
 ```sql
 CREATE TABLE IF NOT EXISTS `cohorts` (
   `id` text PRIMARY KEY NOT NULL,
   `name` text NOT NULL,
-  `is_current` integer DEFAULT 0 NOT NULL,
-  `created_at` text NOT NULL
+  `created_at` text NOT NULL,
+  `visibility` text DEFAULT 'public' NOT NULL,
+  `join_code` text,
+  `deleted_at` text
 );
-INSERT INTO `cohorts` (`id`, `name`, `is_current`, `created_at`) VALUES ('16-9', '16기 9반', 1, '2026-10-22T00:00:00.000Z') ON CONFLICT DO NOTHING;
+CREATE UNIQUE INDEX IF NOT EXISTS `cohorts_join_code_unique` ON `cohorts` (`join_code`);
+INSERT INTO `cohorts` (`id`, `name`, `created_at`) VALUES ('16-9', '16기 9반', '2026-10-22T00:00:00.000Z') ON CONFLICT DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS `attendance` (
   `id` text PRIMARY KEY NOT NULL,
@@ -125,18 +130,18 @@ CREATE TABLE IF NOT EXISTS `admin_login_attempts` (
 </details>
 
 <details>
-<summary>기존 운영 DB에 기수 기능 추가 (한 번만, 10/22)</summary>
+<summary>기존 운영 DB에 기수·가입 코드 기능 추가 (한 번만, 10/22)</summary>
 
-기존 회원·출결·벌금은 모두 16기 9반(`16-9`)으로 들어갑니다. **이 SQL을 실행한 뒤 푸시**합니다.
+기존 회원·출결·벌금은 모두 16기 9반(`16-9`, 공개)으로 들어갑니다. **이 SQL을 실행한 뒤 푸시**합니다. 앞부분(1단계)을 이미 실행했다면 2단계만 실행합니다.
 
 ```sql
+-- 1단계: 기수 칸
 CREATE TABLE `cohorts` (
   `id` text PRIMARY KEY NOT NULL,
   `name` text NOT NULL,
   `is_current` integer DEFAULT 0 NOT NULL,
   `created_at` text NOT NULL
 );
-
 INSERT INTO `cohorts` (`id`, `name`, `is_current`, `created_at`) VALUES ('16-9', '16기 9반', 1, '2026-10-22T00:00:00.000Z');
 ALTER TABLE `members` ADD `cohort` text DEFAULT '16-9' NOT NULL;
 ALTER TABLE `attendance` ADD `cohort` text DEFAULT '16-9' NOT NULL;
@@ -145,10 +150,17 @@ DROP INDEX `members_name_unique`;
 CREATE UNIQUE INDEX `members_cohort_name_unique` ON `members` (`cohort`,`name`);
 DROP INDEX `attendance_date_name_type_unique`;
 CREATE UNIQUE INDEX `attendance_cohort_date_name_type_unique` ON `attendance` (`cohort`,`date`,`name`,`type`);
+
+-- 2단계: 공개·비공개, 가입 코드, 삭제(소프트 삭제)
+ALTER TABLE `cohorts` ADD `visibility` text DEFAULT 'public' NOT NULL;
+ALTER TABLE `cohorts` ADD `join_code` text;
+ALTER TABLE `cohorts` ADD `deleted_at` text;
+ALTER TABLE `cohorts` DROP COLUMN `is_current`;
+CREATE UNIQUE INDEX `cohorts_join_code_unique` ON `cohorts` (`join_code`);
 ```
 </details>
 
-구조 확인: `SELECT * FROM cohorts;`에 16기 9반이 있고, `PRAGMA table_info(members);`에 `is_admin`·`cohort`가 보이면 최신입니다.
+구조 확인: `SELECT * FROM cohorts;`에 `16-9 | 16기 9반 | … | public`이 보이고, `PRAGMA table_info(members);`에 `is_admin`·`cohort`가 보이면 최신입니다.
 
 ---
 

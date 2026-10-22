@@ -3,13 +3,17 @@ import { integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core
 // Rows saved before cohorts existed belong to the first class.
 export const DEFAULT_COHORT = "16-9";
 
-// A class (기수·반). Members, attendance and fines each carry one; is_current marks the class the public calendar shows.
+// A class (기수·반). Members, attendance and fines each carry one.
+// public: anyone may view its calendar; private: only its members and admins. deleted_at hides it everywhere but keeps its data.
+// join_code lets new members sign themselves up into the class; null means sign-up is off.
 export const cohorts = sqliteTable("cohorts", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
-  isCurrent: integer("is_current").notNull().default(0),
+  visibility: text("visibility").notNull().default("public"),
+  joinCode: text("join_code"),
+  deletedAt: text("deleted_at"),
   createdAt: text("created_at").notNull(),
-});
+}, table => [uniqueIndex("cohorts_join_code_unique").on(table.joinCode)]);
 
 export const attendance = sqliteTable("attendance", {
   id: text("id").primaryKey(),

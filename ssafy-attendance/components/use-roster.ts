@@ -11,8 +11,8 @@ function useRosterData() {
 }
 // Live class roster from the members table; null until it loads.
 export function useRoster() { return useRosterData()?.names ?? null; }
-// The class being viewed: "16기 9반", "16기 · 9반" and the two-digit class number.
+// The class being viewed: "16기 9반", "16기 · 9반" and the two-digit class number. A visitor with no public class gets none.
 export function useClassInfo() {
-  const cohort = useRosterData()?.cohort;
-  return { name: cohort?.name ?? "", short: cohort?.name.replace(" ", " · ") ?? "", classNo: cohort ? (cohort.id.split("-")[1] || "").padStart(2, "0") : "" };
+  const data = useRosterData(); const cohort = data?.cohort;
+  return { loaded: !!data, missing: !!data && !cohort, name: cohort?.name ?? "", short: cohort?.name.replace(" ", " · ") ?? "", classNo: cohort ? (cohort.id.split("-")[1] || "").padStart(2, "0") : "" };
 }

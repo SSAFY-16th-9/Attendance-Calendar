@@ -13,6 +13,6 @@ export async function GET(request: Request) {
       db.select({ name: members.name }).from(members).where(eq(members.cohort, cohort)),
       db.select({ id: cohorts.id, name: cohorts.name }).from(cohorts).where(eq(cohorts.id, cohort)).limit(1),
     ]);
-    return Response.json({ names: rows.map(row => row.name).sort((a, b) => a.localeCompare(b, "ko")), cohort: info || { id: cohort, name: cohort } }, { headers: { "Cache-Control": "private, no-store", "Vary": "Cookie" } });
+    return Response.json({ names: rows.map(row => row.name).sort((a, b) => a.localeCompare(b, "ko")), cohort: info ?? null }, { headers: { "Cache-Control": "private, no-store", "Vary": "Cookie" } });
   } catch (error) { console.error("Roster read failed", error); return Response.json({ error: "명단을 불러오지 못했어요." }, { status: 503, headers: { "Cache-Control": "no-store" } }); }
 }

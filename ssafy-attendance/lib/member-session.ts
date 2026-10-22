@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
-import { members } from "@/db/schema";
+import { cohorts, members } from "@/db/schema";
 import { createSession, verifySession, SESSION_SECONDS } from "./admin-session";
 
 export type MemberIdentity = { id: string; username: string; name: string; role: "member"; mustChangePassword: boolean; sessionVersion: number; isAdmin: boolean; cohort: string };
@@ -19,8 +19,10 @@ export async function getMember(request: Request): Promise<MemberIdentity | null
     if (typeof payload.username !== "string" || !/^member:[0-9a-f-]{36}:\d+$/.test(payload.username)) return null;
     if (!await verifySession(token, payload.username, secret)) return null;
     const [, id, version] = payload.username.split(":");
-    const [member] = await getDb().select().from(members).where(eq(members.id, id)).limit(1);
-    if (!member || member.active !== 1 || member.sessionVersion !== Number(version)) return null;
+    // Accounts of a deleted class are signed out along with it.
+    const [row] = await getDb().select({ member: members, deletedAt: cohorts.deletedAt }).from(members).leftJoin(cohorts, eq(cohorts.id, members.cohort)).where(eq(members.id, id)).limit(1);
+    const member = row?.member;
+    if (!member || row.deletedAt || member.active !== 1 || member.sessionVersion !== Number(version)) return null;
     return { id: member.id, username: member.username, name: member.name, role: "member", mustChangePassword: member.mustChangePassword === 1, sessionVersion: member.sessionVersion, isAdmin: member.isAdmin === 1, cohort: member.cohort };
   } catch { return null; }
 }

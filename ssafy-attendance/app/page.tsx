@@ -7,6 +7,7 @@ import { useAuth } from "@/components/auth-provider";
 import AttendanceEditor from "@/components/attendance-editor";
 import EntryDetailDialog from "@/components/entry-detail-dialog";
 import { useClassInfo, useRoster } from "@/components/use-roster";
+import CohortSwitch from "@/components/cohort-switch";
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 const MONTHS = ["JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE", "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER"];
@@ -127,7 +128,8 @@ export default function Home() {
   return <div className="app-shell">
     <aside className="sidebar">
       <a className="brand" href="/" aria-label="출결 모아 홈"><span className="brand-symbol"><Layers2 size={24} strokeWidth={2} /></span><span>출결 모아<span className="brand-caption">우리 반의 하루를 함께</span></span></a>
-      <div className="class-card"><span className="class-icon">{cls.classNo}<span>CLASS</span></span><div><strong>SSAFY {cls.name}</strong><p>{classSize}명이 함께하는 공간</p></div><span className="class-online" title="우리 반 공간" /></div>
+      <div className="class-card"><span className="class-icon">{cls.classNo}<span>CLASS</span></span><div><strong>{cls.missing ? "공개된 기수가 없어요" : `SSAFY ${cls.name}`}</strong><p>{cls.missing ? "로그인하면 우리 반 캘린더를 볼 수 있어요" : `${classSize}명이 함께하는 공간`}</p></div><span className="class-online" title="우리 반 공간" /></div>
+      <CohortSwitch />
       <div className="nav-heading">우리 반 공간</div>
       <nav aria-label="주 메뉴"><button className="nav-item active" onClick={() => { setSideOpen(true); setFilter("all"); setSearch(""); }}><CalendarDays size={19} /><span>출결 캘린더</span><span className="nav-dot" /></button><button className="nav-item" onClick={() => { setMemberSearch(""); setInfoDialog("members"); }}><Users size={19} /><span>우리 반 명단</span><span className="nav-count">{classSize}</span></button><a className="nav-item fines-nav" href="/fines"><Wallet size={19} /><span>벌금 현황</span></a></nav>
       <div className="sidebar-note"><span className="note-flower"><Flower2 size={29} strokeWidth={1.5} /></span><strong>작은 공유가 만드는<br />편안한 하루.</strong><p>미리 알려주면, 서로의 하루를 조금 더 잘 이해할 수 있어요.</p><span className="note-line" /></div>

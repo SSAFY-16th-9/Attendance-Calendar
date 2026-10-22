@@ -6,7 +6,7 @@ import { getActor } from "../lib/site-auth";
 export default {
   async fetch(request: Request, env: Cloudflare.Env, ctx: ExecutionContext<{ CONNECTORS?: ConnectorBinding }>) {
     const url = new URL(request.url);
-    const publicPath = url.pathname === "/login" || url.pathname === "/api/session" || url.pathname === "/api/admin/session" || url.pathname === "/favicon.svg" || url.pathname.startsWith("/_next/") || url.pathname.startsWith("/@") || url.pathname.startsWith("/__vite");
+    const publicPath = url.pathname === "/login" || url.pathname === "/signup" || url.pathname === "/api/signup" || url.pathname === "/api/cohorts" || url.pathname === "/api/session" || url.pathname === "/api/admin/session" || url.pathname === "/favicon.svg" || url.pathname.startsWith("/_next/") || url.pathname.startsWith("/@") || url.pathname.startsWith("/__vite");
     // Anyone may view the calendar; adding, editing and the other pages still need a login.
     const publicRead = request.method === "GET" && (url.pathname === "/" || url.pathname === "/api/attendance" || url.pathname === "/api/roster");
     if (!publicPath) {
