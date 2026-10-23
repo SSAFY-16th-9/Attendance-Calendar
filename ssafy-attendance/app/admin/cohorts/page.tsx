@@ -44,7 +44,7 @@ export default function CohortsPage() {
         <button className="primary-button" disabled={busy}><Plus size={15} />기수 추가</button>
       </form>}
       {error && <p className="error-banner" role="alert"><Info size={16} />{error}</p>}{notice && <p className="member-notice cohort-notice" role="status"><Check size={16} />{notice}</p>}
-      <section className="admin-records"><div className="admin-table-heading"><div><h2>기수 · {live.length}개</h2><p>{data?.superAdmin ? "공개 기수는 로그인 없이 캘린더를 볼 수 있고, 비공개 기수는 그 기수 회원과 관리자만 볼 수 있어요." : "하위 관리자는 자기 기수의 가입 코드만 만들거나 끌 수 있어요."}</p></div></div>
+      <section className="admin-records"><div className="admin-table-heading"><div><h2>기수 · {live.length}개</h2><p>{data?.superAdmin ? "공개 기수는 로그인 없이 캘린더를 볼 수 있고, 비공개 기수는 그 기수 회원과 관리자만 볼 수 있어요." : "기수 관리자는 자기 기수의 가입 코드만 만들거나 끌 수 있어요."}</p></div></div>
         <div className="admin-table-scroll"><table className="admin-table cohort-table"><thead><tr><th>기수</th><th>회원</th><th>공개</th><th>가입 코드</th><th>관리</th></tr></thead><tbody>{live.map(cohort => <tr key={cohort.id}>
           <td><strong>{cohort.name}</strong>{cohort.id === data?.selected && <span className="cohort-current">관리 중</span>}</td>
           <td>{cohort.members}명</td>

@@ -15,7 +15,7 @@ const DESCRIPTIONS: Record<ActionType, string> = {
   reset: "처리하면 이 회원의 기존 로그인은 해제됩니다. 출결과 벌금 기록은 보존됩니다.",
   activate: "처리하면 이 회원의 기존 로그인은 해제됩니다. 출결과 벌금 기록은 보존됩니다.",
   deactivate: "로그인할 수 없게 되지만 출결과 벌금 기록은 보존됩니다.",
-  grantAdmin: "출결·벌금·회원 관리를 모두 할 수 있게 돼요. 관리자 권한을 주고 빼는 일은 핵심 관리자만 할 수 있어요.",
+  grantAdmin: "이 회원이 속한 기수의 출결·벌금·회원 관리를 할 수 있는 기수 관리자가 돼요. 다른 기수는 관리할 수 없고, 관리자 권한을 주고 빼는 일은 총 관리자만 할 수 있어요.",
   revokeAdmin: "관리자 기능을 더 이상 쓸 수 없고 일반 회원으로 돌아가요. 기존 로그인은 해제됩니다.",
   delete: "명단과 로그인 계정이 삭제돼요. 기록을 남기려면 대신 ‘이용 정지’를 사용하세요.",
 };
@@ -51,17 +51,17 @@ export default function Members() {
   const danger = action?.type === "delete" || action?.type === "deactivate";
   return <div className="admin-app"><header className="admin-topbar"><a className="brand" href="/"><span className="brand-symbol"><Layers2 size={24} /></span><span>출결 모아<span className="brand-caption">SSAFY {cls.name}</span></span></a><AdminNav current="/admin/members" /></header><main className="admin-main">
     <section className="page-heading"><div><div className="eyebrow"><ShieldCheck size={14} /> ADMIN WORKSPACE</div><h1>회원 관리<span className="heading-dot">.</span></h1><p>회원은 ‘기수 관리’에서 만든 가입 코드로 직접 가입해요. 여기서는 명단과 계정, 관리자 권한을 관리하세요.</p></div><div className="admin-heading-actions">{user?.role === "admin" && <button className="primary-button" onClick={() => setAction({ type: "add" })}><Plus size={16} />인원 추가</button>}</div></section>
-    {loading ? <p>관리자 권한을 확인하고 있어요.</p> : user?.role !== "admin" ? <div className="fine-login-needed"><h2>관리자만 이용할 수 있어요.</h2><a className="primary-button" href="/login">관리자 로그인</a></div> : <><CohortBar /><section className="admin-records"><div className="admin-table-heading"><div><h2>{cls.name || "우리 반"} 명단 · {entries.length}명</h2><p>{superAdmin ? "핵심 관리자로 로그인했어요. 회원에게 관리자 권한을 주거나 뺄 수 있어요." : "하위 관리자로 로그인했어요. 다른 관리자 계정과 관리자 권한은 핵심 관리자만 바꿀 수 있어요."}</p></div><button className="secondary-button" onClick={load}>새로고침</button></div>
+    {loading ? <p>관리자 권한을 확인하고 있어요.</p> : user?.role !== "admin" ? <div className="fine-login-needed"><h2>관리자만 이용할 수 있어요.</h2><a className="primary-button" href="/login">관리자 로그인</a></div> : <><CohortBar /><section className="admin-records"><div className="admin-table-heading"><div><h2>{cls.name || "우리 반"} 명단 · {entries.length}명</h2><p>{superAdmin ? "총 관리자로 로그인했어요. 모든 기수를 관리하고, 회원에게 기수 관리자 권한을 주거나 뺄 수 있어요." : "기수 관리자로 로그인했어요. 내 기수만 관리할 수 있고, 다른 관리자 계정과 관리자 권한은 총 관리자만 바꿀 수 있어요."}</p></div><button className="secondary-button" onClick={load}>새로고침</button></div>
       <div className="admin-filters"><label className="calendar-search"><Search size={16} /><input aria-label="회원 검색" placeholder="이름 또는 아이디" value={query} onChange={e => setQuery(e.target.value)} /></label></div>
       {error && !action && <p className="error-banner" role="alert">{error}</p>}{notice && <p className="member-notice" role="status"><Check size={16} />{notice}</p>}
       <div className="admin-table-scroll"><table className="admin-table member-table"><thead><tr><th>이름</th><th>아이디</th><th>권한</th><th>이용 상태</th><th>비밀번호</th><th>관리</th></tr></thead><tbody>{visible.map(member => <tr key={member.id}>
         <td><strong>{member.name}</strong></td><td>@{member.username}</td>
-        <td><span className={`role-badge ${member.isAdmin ? "admin" : ""}`}>{member.isAdmin ? "관리자" : "회원"}</span></td>
+        <td><span className={`role-badge ${member.isAdmin ? "admin" : ""}`}>{member.isAdmin ? "기수 관리자" : "회원"}</span></td>
         <td><span className={`fine-status ${member.active ? "paid" : "waived"}`}>{member.active ? "이용 중" : "이용 정지"}</span></td>
         <td>{member.mustChangePassword ? "변경 필요" : "변경 완료"}</td>
         <td><div className="member-actions">
           <button onClick={() => setAction({ member, type: "rename" })} aria-label={`${member.name} 이름 변경`}>이름 변경</button>
-          {lockedAdmin(member) ? <span className="member-locked">관리자 계정은 핵심 관리자만 변경할 수 있어요</span> : <>
+          {lockedAdmin(member) ? <span className="member-locked">관리자 계정은 총 관리자만 변경할 수 있어요</span> : <>
             <button onClick={() => setAction({ member, type: "username" })} aria-label={`${member.name} 아이디 변경`}>아이디 변경</button>
             <button onClick={() => setAction({ member, type: "reset" })} aria-label={`${member.name} 비밀번호 초기화`}>비밀번호 초기화</button>
             <button onClick={() => setAction({ member, type: member.active ? "deactivate" : "activate" })} aria-label={`${member.name} ${member.active ? "이용 정지" : "이용 재개"}`}>{member.active ? "이용 정지" : "이용 재개"}</button>

@@ -16,7 +16,7 @@
 | 3 | 비밀값 4개 만들어 등록하기 |
 | 4 | 새 D1에 `schema.sql` 실행하기 |
 | 5 | GitHub 연결해 자동 배포 설정하기 |
-| 6 | 핵심 관리자로 로그인 → 기수 추가 → 가입 코드 전달 |
+| 6 | 총 관리자로 로그인 → 기수 추가 → 가입 코드 전달 |
 
 필요한 것: Cloudflare 계정, GitHub 계정, Node.js 22.13 이상.
 
@@ -45,8 +45,8 @@ Cloudflare → **Storage & databases → D1 → Create** 에서 데이터베이�
 
 | 이름 | 내용 |
 | --- | --- |
-| `ADMIN_USERNAME` | 핵심 관리자 로그인 아이디 (예: `admin`) |
-| `ADMIN_PASSWORD_HASH` | 핵심 관리자 비밀번호의 해시 (PBKDF2-SHA256, 100,000회, 32바이트, 16진수) |
+| `ADMIN_USERNAME` | 총 관리자 로그인 아이디 (예: `admin`) |
+| `ADMIN_PASSWORD_HASH` | 총 관리자 비밀번호의 해시 (PBKDF2-SHA256, 100,000회, 32바이트, 16진수) |
 | `ADMIN_PASSWORD_SALT` | 위 해시에 쓴 솔트 |
 | `ADMIN_SESSION_SECRET` | 로그인 쿠키 서명 키, **32자 이상** 무작위 값 (관리자·회원 로그인 모두 사용) |
 

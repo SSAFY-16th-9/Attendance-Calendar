@@ -6,7 +6,7 @@ import { cohortCookie, cohortId, cohortLabel, formatJoinCode, isCohortId, newJoi
 import { isUniqueConflict } from "@/lib/records";
 
 export const dynamic = "force-dynamic";
-const CORE_ONLY = "기수 추가·공개 설정·삭제는 핵심 관리자(admin)만 할 수 있어요.";
+const CORE_ONLY = "기수 추가·공개 설정·삭제는 총 관리자(admin)만 할 수 있어요.";
 const ACTIONS = ["select", "visibility", "newCode", "codeOff", "delete", "restore"] as const;
 
 // Classes for the admin pages: the core admin sees every class (deleted ones too), a sub-admin only their own.

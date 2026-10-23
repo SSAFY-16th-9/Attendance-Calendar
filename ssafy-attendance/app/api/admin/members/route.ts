@@ -9,7 +9,7 @@ import { isUniqueConflict, ownedBy } from "@/lib/records";
 import { workingCohort } from "@/lib/cohort";
 
 export const dynamic = "force-dynamic";
-const CORE_ONLY = "관리자 계정은 핵심 관리자(admin)만 변경할 수 있어요.";
+const CORE_ONLY = "관리자 계정은 총 관리자(admin)만 변경할 수 있어요.";
 // New members (and members still on their first password) use their username as the initial password.
 const initialPassword = (username: string) => hashedPassword(username);
 
@@ -55,7 +55,7 @@ export async function PATCH(request: Request) {
 
     // Only the core admin grants or removes admin rights; the session bump makes the change apply at once.
     if (input.action === "grantAdmin" || input.action === "revokeAdmin") {
-      if (!superAdmin) return privateJson({ error: "관리자 권한은 핵심 관리자(admin)만 주거나 뺄 수 있어요." }, 403);
+      if (!superAdmin) return privateJson({ error: "관리자 권한은 총 관리자(admin)만 주거나 뺄 수 있어요." }, 403);
       await db.update(members).set({ isAdmin: input.action === "grantAdmin" ? 1 : 0, sessionVersion: sql`${members.sessionVersion} + 1`, updatedAt: now }).where(eq(members.id, id));
       return privateJson({ updated: true });
     }
