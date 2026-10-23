@@ -1,7 +1,7 @@
-import { and, eq, like, sql } from "drizzle-orm";
+import { and, eq, inArray, like, sql } from "drizzle-orm";
 import { getDb } from "@/db";
-import { fines, members } from "@/db/schema";
-import { canonicalName } from "@/lib/attendance";
+import { attendance, fines, members } from "@/db/schema";
+import { canonicalName, nameAliases } from "@/lib/attendance";
 import { Fine, FINE_STATUSES, summarizeFines, summarizePeople } from "@/lib/fines";
 import { requireActor } from "@/lib/site-auth";
 import { cohortFor } from "@/lib/cohort";
@@ -14,10 +14,19 @@ export async function GET(request: Request) {
   const name = (params.get("q") || "").trim();
   const status = params.get("status") || "";
   const page = Number(params.get("page") || 1);
+  const person = (params.get("person") || "").trim();
   const json = (data: unknown, code = 200) => Response.json(data, { status: code, headers: { "Cache-Control": "no-store" } });
   if (month && !/^\d{4}-(0[1-9]|1[0-2])$/.test(month) || name.length > 50 || status && !FINE_STATUSES.includes(status as typeof FINE_STATUSES[number]) || !Number.isSafeInteger(page) || page < 1 || page > 100000) return json({ error: "조회 조건을 확인해 주세요." }, 400);
+  if (person.length > 50) return json({ error: "조회 조건을 확인해 주세요." }, 400);
   try {
     const cohort = await cohortFor(request, auth.actor);
+    // One person's whole history (every month), with the attendance detail reason, for the 개인별 현황 popup.
+    if (person) {
+      const rows = await getDb().select({ fine: fines, reason: attendance.reason }).from(fines).leftJoin(attendance, eq(attendance.id, fines.attendanceId))
+        .where(and(eq(fines.cohort, cohort), inArray(fines.name, nameAliases(person)))).orderBy(sql`${fines.date} desc`, fines.id);
+      const entries = rows.map(row => ({ ...row.fine, name: canonicalName(row.fine.name), reason: row.reason ?? "" }));
+      return json({ person, entries, summary: summarizeFines(entries as Fine[]) });
+    }
     const canonical = sql<string>`CASE WHEN ${fines.name} = '이주연' THEN '이주언' ELSE ${fines.name} END`;
     const rows = await getDb().select().from(fines).where(and(eq(fines.cohort, cohort), month ? like(fines.date, `${month}-%`) : undefined, name ? sql`instr(${canonical}, ${name}) > 0` : undefined)).orderBy(sql`${fines.date} desc`, fines.name, fines.id);
     const roster = await getDb().select({ name: members.name }).from(members).where(eq(members.cohort, cohort)).orderBy(members.name);

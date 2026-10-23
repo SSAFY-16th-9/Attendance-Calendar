@@ -18,7 +18,7 @@ export default function ClearUnnotifiedAction({ entry, onChanged }: { entry: Att
   }
   if (!confirming) return <button className="clear-unnotified-button" type="button" onClick={() => { setError(""); setConfirming(true); }}><ShieldOff size={14} />무단 해제</button>;
   return <div className="entry-delete-confirm clear-unnotified-confirm" role="alert">
-    <p>이 출결의 무단을 해제할까요?{entry.fineId && entry.fineStatus !== "waived" ? ` 벌금 ${won(FINE_AMOUNT)}은 ‘부과 취소’로 바뀌고 벌금 내역에는 기록이 남아요.` : ""} 벌금 관리에서 ‘부과 복원’하면 다시 무단이 돼요.</p>
+    <p>이 출결의 무단을 해제할까요?{entry.fineId ? ` 벌금 ${won(FINE_AMOUNT)}은 부과 취소되고, 벌금 내역에는 ‘무단 해제’로 표시돼요.` : ""} 벌금 관리에서 ‘부과 복원’하면 다시 무단이 돼요.</p>
     {error && <p className="form-error"><Info size={15} />{error}</p>}
     <div><button className="secondary-button" type="button" disabled={busy} onClick={() => setConfirming(false)}>취소</button><button className="primary-button" type="button" disabled={busy} onClick={clear}>{busy ? <LoaderCircle size={14} className="spin" /> : <ShieldOff size={14} />}{busy ? "해제 중…" : "무단 해제"}</button></div>
   </div>;

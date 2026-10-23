@@ -1,11 +1,11 @@
-import { and, count, desc, eq, inArray, like, ne, sql } from "drizzle-orm";
+import { and, count, desc, eq, inArray, like, ne, notInArray, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { attendance, fines, members } from "@/db/schema";
 import { privateJson, requireAdmin } from "@/lib/admin-auth";
 import { syncFineWithAttendance } from "@/lib/fine-sync";
 import { isUniqueConflict, takenDates } from "@/lib/records";
 import { workingCohort } from "@/lib/cohort";
-import { DAILY_LIMIT_MESSAGE, isUnnotified, takenDatesMessage, validateEntries, canonicalName, nameAliases, TYPES, validateEntry } from "@/lib/attendance";
+import { CANCELLED_FINE_STATUSES, DAILY_LIMIT_MESSAGE, isUnnotified, takenDatesMessage, validateEntries, canonicalName, nameAliases, TYPES, validateEntry } from "@/lib/attendance";
 
 export const dynamic = "force-dynamic";
 
@@ -95,13 +95,13 @@ export async function PATCH(request: Request) {
   }
 }
 
-// 무단 해제: cancel the record's fine (kept in the ledger as 부과 취소) and drop the admin's 무단 mark, together.
+// 무단 해제: cancel the record's fine (kept in the ledger as 무단 해제 · 부과 취소) and drop the admin's 무단 mark, together.
 async function clearUnnotified(request: Request, id: unknown) {
   if (typeof id !== "string" || !/^[0-9a-f-]{36}$/.test(id)) return privateJson({ error: "무단을 해제할 출결을 확인해 주세요." }, 400);
   try {
     const db = getDb(); const cohort = await workingCohort(request); const now = new Date().toISOString();
     const [, cleared] = await db.batch([
-      db.update(fines).set({ status: "waived", paidAt: null, updatedAt: now, revision: sql`${fines.revision} + 1` }).where(and(eq(fines.attendanceId, id), eq(fines.cohort, cohort), ne(fines.status, "waived"))),
+      db.update(fines).set({ status: "cleared", paidAt: null, updatedAt: now, revision: sql`${fines.revision} + 1` }).where(and(eq(fines.attendanceId, id), eq(fines.cohort, cohort), notInArray(fines.status, [...CANCELLED_FINE_STATUSES]))),
       db.update(attendance).set({ adminRecord: 0 }).where(and(eq(attendance.id, id), eq(attendance.cohort, cohort))).returning({ id: attendance.id }),
     ]);
     if (!cleared.length) return privateJson({ error: "이미 삭제된 내역이에요. 새로고침해 주세요." }, 404);

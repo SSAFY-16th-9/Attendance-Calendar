@@ -99,6 +99,7 @@ test('무단 detection and display classes are shared by the API and the UI', as
   assert.equal(isUnnotified({ adminRecord: 1, fineStatus: null }), true);
   assert.equal(isUnnotified({ adminRecord: 0, fineStatus: 'unpaid' }), true);
   assert.equal(isUnnotified({ adminRecord: 0, fineStatus: 'waived' }), false);
+  assert.equal(isUnnotified({ adminRecord: 0, fineStatus: 'cleared' }), false);
   assert.equal(isUnnotified({ adminRecord: 0, fineStatus: null }), false);
   assert.equal(typeClass('공가'), 'type-0');
   assert.equal(statusClass({ type: '사유지각', unnotified: true, pending: 1 }), 'unnotified');

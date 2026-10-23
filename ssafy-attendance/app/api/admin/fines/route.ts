@@ -43,7 +43,7 @@ export async function PATCH(request: Request) {
     // Restoring the fine (back to unpaid) makes it 무단 again through the fine itself.
     const [rows] = await db.batch([
       db.update(fines).set({ status: valid.status, paidAt: valid.status === "paid" ? now : null, updatedAt: now, revision: sql`${fines.revision} + 1` }).where(and(eq(fines.id, valid.id), eq(fines.cohort, await workingCohort(request)), eq(fines.revision, valid.revision))).returning({ id: fines.id }),
-      db.update(attendance).set({ adminRecord: 0 }).where(sql`${attendance.id} IN (SELECT attendance_id FROM fines WHERE id = ${valid.id} AND status = 'waived')`),
+      db.update(attendance).set({ adminRecord: 0 }).where(sql`${attendance.id} IN (SELECT attendance_id FROM fines WHERE id = ${valid.id} AND status IN ('waived', 'cleared'))`),
     ]);
     if (!rows.length) return privateJson({ error: "다른 관리 작업으로 내역이 바뀌었어요. 새로고침 후 다시 확인해 주세요." }, 409);
     return privateJson({ updated: true });

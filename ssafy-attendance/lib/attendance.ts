@@ -12,8 +12,11 @@ export type AttendanceType = typeof TYPES[number];
 export type AttendanceEntry = { id: string; date: string; name: string; type: AttendanceType; reason: string; createdAt: string; ownerId?: string | null; adminRecord?: number; pending?: number; unnotified?: boolean; fineId?: string | null; fineStatus?: string | null };
 
 // A person can have at most one attendance record per day; later changes go through editing.
-// 무단: an admin-registered 무단 record, or one with a fine that is not waived.
-export const isUnnotified = (row: { adminRecord?: number | null; fineStatus?: string | null }) => row.adminRecord === 1 || (!!row.fineStatus && row.fineStatus !== "waived");
+// A cancelled fine: 부과 취소 (waived) from the ledger, or 무단 해제 (cleared) from the record itself. Neither counts as money owed.
+export const CANCELLED_FINE_STATUSES = ["waived", "cleared"] as const;
+export const isCancelledFine = (status?: string | null) => CANCELLED_FINE_STATUSES.includes(status as typeof CANCELLED_FINE_STATUSES[number]);
+// 무단: an admin-registered 무단 record, or one with a fine that is not cancelled.
+export const isUnnotified = (row: { adminRecord?: number | null; fineStatus?: string | null }) => row.adminRecord === 1 || (!!row.fineStatus && !isCancelledFine(row.fineStatus));
 // CSS classes for a record's badge/chip: its type colour, or 무단 red; 미정 adds a dashed outline.
 export const typeClass = (type: string) => `type-${TYPES.indexOf(type as AttendanceType)}`;
 export const statusClass = (entry: { type: string; unnotified?: boolean; pending?: number }) => entry.unnotified ? "unnotified" : `${typeClass(entry.type)}${entry.pending ? " pending" : ""}`;
