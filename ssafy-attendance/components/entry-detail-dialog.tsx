@@ -4,6 +4,7 @@ import { Clock3, Info, LoaderCircle, Pencil, Trash2, X } from "lucide-react";
 import { AttendanceEntry, shortDate, statusClass, statusPrefix } from "@/lib/attendance";
 import { useAuth } from "./auth-provider";
 import InlineFineAction from "./inline-fine-action";
+import ClearUnnotifiedAction from "./clear-unnotified-action";
 const formatDate = (date: string) => new Date(`${date}T12:00:00+09:00`).toLocaleDateString("ko-KR", { month: "long", day: "numeric", weekday: "short", timeZone: "Asia/Seoul" });
 // Permissions mirror the server: members edit and delete their own records, except that 무단 ones keep their date and only admins delete them.
 export default function EntryDetailDialog({ name, entries, onClose, onEdit, onChanged, groupFor }: { name: string | null; entries: AttendanceEntry[]; onClose: () => void; onEdit: (entry: AttendanceEntry) => void; onChanged: (message?: string) => void; groupFor: (entry: AttendanceEntry) => AttendanceEntry[] }) {
@@ -27,6 +28,7 @@ export default function EntryDetailDialog({ name, entries, onClose, onEdit, onCh
       <div className="entry-footer"><span><Clock3 size={12} />{new Date(entry.createdAt).toLocaleDateString("ko-KR", { month: "long", day: "numeric", timeZone: "Asia/Seoul" })} 등록</span>{(canEdit(entry) || canDelete(entry)) && <div className="entry-actions">{canEdit(entry) && <button className="secondary-button" type="button" disabled={busy} onClick={() => onEdit(entry)}><Pencil size={13} />수정</button>}{canDelete(entry) && <button className="secondary-button entry-delete" type="button" disabled={busy} onClick={() => { setError(""); setDeleteGroup(false); setConfirming(entry.id); }}><Trash2 size={13} />삭제</button>}</div>}</div>
       {confirming === entry.id && <div className="entry-delete-confirm" role="alert"><p>이 출결을 삭제할까요? 삭제 후에는 되돌릴 수 없어요.{entry.fineId ? " 부과된 벌금도 함께 삭제됩니다." : ""}</p>{groupFor(entry).length > 1 && <label className="group-delete-toggle"><input type="checkbox" checked={deleteGroup} onChange={e => setDeleteGroup(e.target.checked)} />함께 등록한 {groupFor(entry).length}일 모두 삭제<span>{groupFor(entry).map(item => shortDate(item.date)).join(", ")}</span></label>}<div><button className="secondary-button" type="button" disabled={busy} onClick={() => setConfirming(null)}>취소</button><button className="primary-button danger-button" type="button" disabled={busy} onClick={() => remove(entry)}>{busy ? <LoaderCircle size={14} className="spin" /> : <Trash2 size={14} />}{busy ? "삭제 중…" : "삭제하기"}</button></div></div>}
       {user?.role === "admin" && <InlineFineAction entry={entry} onChanged={() => onChanged()} />}
+      {user?.role === "admin" && entry.unnotified && <ClearUnnotifiedAction entry={entry} onChanged={onChanged} />}
     </div>)}{error && <p className="form-error" role="alert"><Info size={15} />{error}</p>}</div>
   </dialog>;
 }

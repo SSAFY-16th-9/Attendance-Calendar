@@ -44,11 +44,11 @@ export async function GET(request: Request) {
   try {
     const db = getDb();
     const [entries, totals, types] = await Promise.all([
-      db.select().from(attendance).where(where).orderBy(desc(attendance.date), attendance.name, attendance.type).limit(50).offset((page - 1) * 50),
+      db.select({ attendance, fineId: fines.id, fineStatus: fines.status }).from(attendance).leftJoin(fines, eq(attendance.id, fines.attendanceId)).where(where).orderBy(desc(attendance.date), attendance.name, attendance.type).limit(50).offset((page - 1) * 50),
       db.select({ total: count(), people: sql<number>`count(distinct ${canonical})` }).from(attendance).where(where),
       db.select({ type: attendance.type, count: count() }).from(attendance).where(where).groupBy(attendance.type),
     ]);
-    return privateJson({ entries: entries.map(entry => ({ ...entry, name: canonicalName(entry.name) })), total: totals[0].total, people: totals[0].people, types, page, pageSize: 50 });
+    return privateJson({ entries: entries.map(row => ({ ...row.attendance, name: canonicalName(row.attendance.name), fineId: row.fineId, fineStatus: row.fineStatus, unnotified: isUnnotified({ adminRecord: row.attendance.adminRecord, fineStatus: row.fineStatus }) })), total: totals[0].total, people: totals[0].people, types, page, pageSize: 50 });
   } catch (error) { console.error("Admin read failed", error); return privateJson({ error: "출결 내역을 불러오지 못했어요." }, 503); }
 }
 
@@ -58,6 +58,7 @@ export async function PATCH(request: Request) {
   if (Number(request.headers.get("content-length") || 0) > 10000) return privateJson({ error: "입력 내용이 너무 길어요." }, 413);
   let input: Record<string, unknown>;
   try { input = await request.json() as typeof input; } catch { return privateJson({ error: "수정할 내용을 확인해 주세요." }, 400); }
+  if (input?.action === "clearUnnotified") return clearUnnotified(request, input.id);
   const valid = validateEntry(input);
   if (typeof valid === "string") return privateJson({ error: valid }, 400);
   if (typeof input.id !== "string" || !/^[0-9a-f-]{36}$/.test(input.id)) return privateJson({ error: "수정할 내역을 확인해 주세요." }, 400);
@@ -92,6 +93,20 @@ export async function PATCH(request: Request) {
     if (isUniqueConflict(error)) return privateJson({ error: "중복되는 출결 내역이 있어요." }, 409);
     console.error("Admin update failed", error); return privateJson({ error: "수정하지 못했어요. 다시 시도해 주세요." }, 503);
   }
+}
+
+// 무단 해제: cancel the record's fine (kept in the ledger as 부과 취소) and drop the admin's 무단 mark, together.
+async function clearUnnotified(request: Request, id: unknown) {
+  if (typeof id !== "string" || !/^[0-9a-f-]{36}$/.test(id)) return privateJson({ error: "무단을 해제할 출결을 확인해 주세요." }, 400);
+  try {
+    const db = getDb(); const cohort = await workingCohort(request); const now = new Date().toISOString();
+    const [, cleared] = await db.batch([
+      db.update(fines).set({ status: "waived", paidAt: null, updatedAt: now, revision: sql`${fines.revision} + 1` }).where(and(eq(fines.attendanceId, id), eq(fines.cohort, cohort), ne(fines.status, "waived"))),
+      db.update(attendance).set({ adminRecord: 0 }).where(and(eq(attendance.id, id), eq(attendance.cohort, cohort))).returning({ id: attendance.id }),
+    ]);
+    if (!cleared.length) return privateJson({ error: "이미 삭제된 내역이에요. 새로고침해 주세요." }, 404);
+    return privateJson({ cleared: true });
+  } catch (error) { console.error("Clear 무단 failed", error); return privateJson({ error: "무단을 해제하지 못했어요." }, 503); }
 }
 
 export async function DELETE(request: Request) {
